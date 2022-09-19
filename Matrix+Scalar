@@ -1,0 +1,102 @@
+#include <iostream>
+#include <fstream>
+#include <cmath>
+#include <string>
+using namespace std;
+string Matrica(ifstream& mc, ifstream& vek)
+{
+	if (!mc)
+	{
+		cout << "File not open!" << endl;
+	}
+	int h, b;
+	mc >> h;
+	double** Matrix = new double* [h];
+	for (int i = 0; i < h; i++)
+	{
+		Matrix[i] = new double[h];
+	}
+	while (!mc.eof())
+	{
+		for (int i = 0; i < h; i++)
+		{
+			for (int j = 0; j < h; j++)
+			{
+				mc >> Matrix[i][j];
+			}
+		}
+
+		vek >> b;
+		double* X = new double[b];
+		while (!vek.eof())
+		{
+			for (int i = 0; i < b; i++)
+			{
+				vek >> X[i];
+			}
+
+
+			int* r = new int[b];
+			for (int i = 0; i < b; i++)
+			{
+				r[i] = 0;
+			}
+
+			for (int i = 0; i < b; i++)
+			{
+				for (int j = 0; j < b; j++)
+				{
+					r[j] += Matrix[i][j] * X[i];
+				}
+			}
+			for (int i = 0; i < b; i++)
+			{
+				cout << r[i] << " ";
+			}
+		}
+	}
+	return(" ");
+}
+double Skalar(ifstream& in)
+{
+	double m = 0.0;
+	if (!in)
+	{
+		cout << "File not open!" << endl;
+	}
+	int size;
+	string line;
+	in >> size;
+	double* X = new double[size];
+	double* Y = new double[size];
+	while (!in.eof())
+	{
+		for (int i = 0; i < 2; i++)
+		{
+			for (int i = 0; i < size; i++)
+			{
+				in >> X[i];
+			}
+			for (int i = 0; i < size; i++)
+			{
+				in >> Y[i];
+			}
+			for (int i = 0; i < size; i++)
+			{
+				m = m + (X[i] * Y[i]);
+			}
+			return(m);
+		}
+	}
+
+	return(m);
+}
+int main()
+{
+	ifstream in, mc, vek;
+	in.open("C:\\users\\stud\\Desktop\\vvod.txt");
+	mc.open("C:\\users\\stud\\Desktop\\matrica.txt");
+	vek.open("C:\\users\\stud\\Desktop\\vek.txt");
+	cout << Matrica(mc, vek) << endl;
+	cout << Skalar(in) << endl;
+}

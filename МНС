@@ -1,0 +1,131 @@
+#include <iostream>
+#include <fstream>
+#include <cmath>
+
+using namespace std;
+
+void readMatrixFromFile(const string& filename, double**& matrix, int& size) {
+    ifstream file(filename);
+    if (!file.is_open()) {
+        cerr << "Не удалось открыть файл: " << filename << endl;
+        exit(1);
+    }
+
+    file >> size;
+    matrix = new double*[size];
+    for (int i = 0; i < size; ++i) {
+        matrix[i] = new double[size];
+        for (int j = 0; j < size; ++j) {
+            file >> matrix[i][j];
+        }
+    }
+
+    file.close();
+}
+
+void readVectorFromFile(const string& filename, double*& vector, int& size) {
+    ifstream file(filename);
+    if (!file.is_open()) {
+        cerr << "Не удалось открыть файл: " << filename << endl;
+        exit(1);
+    }
+
+    file >> size;
+    vector = new double[size];
+    for (int i = 0; i < size; ++i) {
+        file >> vector[i];
+    }
+
+    file.close();
+}
+
+void conjugateGradient(double** A, double* b, double* x, int n) {
+    double *r = new double[n];
+    double *p = new double[n];
+    double *new_r = new double[n];
+    double alpha, beta, rsold, rsnew;
+
+    // Начальное приближение - нулевой вектор
+    for (int i = 0; i < n; ++i) {
+        x[i] = 0.0;
+        r[i] = b[i];
+        p[i] = r[i];
+    }
+
+    rsold = 0.0;
+    for (int i = 0; i < n; ++i) {
+        rsold += r[i] * r[i];
+    }
+
+    for (int it = 0; it < n; ++it) {
+        double *Ap = new double[n];
+        for (int i = 0; i < n; ++i) {
+            Ap[i] = 0.0;
+            for (int j = 0; j < n; ++j) {
+                Ap[i] += A[i][j] * p[j];
+            }
+        }
+
+        double alpha_num = 0.0;
+        double alpha_den = 0.0;
+        for (int i = 0; i < n; ++i) {
+            alpha_num += r[i] * r[i];
+            alpha_den += p[i] * Ap[i];
+        }
+        alpha = alpha_num / alpha_den;
+
+        for (int i = 0; i < n; ++i) {
+            x[i] += alpha * p[i];
+            new_r[i] = r[i] - alpha * Ap[i];
+        }
+
+        rsnew = 0.0;
+        for (int i = 0; i < n; ++i) {
+            rsnew += new_r[i] * new_r[i];
+        }
+
+        if (sqrt(rsnew) < 1e-10) {
+            break;
+        }
+
+        beta = rsnew / rsold;
+        for (int i = 0 ; i < n; ++i) {
+            p[i] = new_r[i] + beta * p[i];
+            r[i] = new_r[i];
+        }
+
+        rsold = rsnew;
+        delete[] Ap;
+    }
+
+    delete[] r;
+    delete[] p;
+    delete[] new_r;
+}
+
+int main() {
+    double **A, *b, *x;
+    int n;
+
+    readMatrixFromFile("matrix.txt", A, n);
+    readVectorFromFile("vector.txt", b, n);
+
+    x = new double[n];
+    conjugateGradient(A, b, x, n);
+
+    cout << "Решение: ";
+    for (int i = 0; i < n; ++i) {
+        cout << x[i] << " ";
+    }
+    cout << endl;
+
+    // Освобождаем память
+    for (int i = 0; i < n; ++i) {
+        delete[] A[i];
+    }
+    delete[] A;
+    delete[] b;
+    delete[] x;
+
+    return 0;
+}

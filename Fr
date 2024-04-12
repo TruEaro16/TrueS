@@ -1,0 +1,66 @@
+#include <iostream>
+#include <vector>
+#include <cmath>
+
+using namespace std;
+
+// Функция для умножения матрицы на вектор
+vector<double> multiply(const vector<vector<double>>& A, const vector<double>& v) {
+    int n = A.size();
+    vector<double> result(n, 0.0);
+    for (int i = 0; i < n; i++) {
+        for (int j = 0; j < n; j++) {
+            result[i] += A[i][j] * v[j];
+        }
+    }
+    return result;
+}
+
+// Функция для вычисления скалярного произведения двух векторов
+double dot(const vector<double>& a, const vector<double>& b) {
+    double sum = 0.0;
+    for (int i = 0; i < a.size(); i++) {
+        sum += a[i] * b[i];
+    }
+    return sum;
+}
+
+// Функция для нормализации вектора
+void normalize(vector<double>& v) {
+    double norm = sqrt(dot(v, v));
+    for (double& x : v) x /= norm;
+}
+
+// Степенной метод
+pair<double, vector<double>> powerMethod(const vector<vector<double>>& A, vector<double> v, int maxIter, double tol) {
+    vector<double> w;
+    double lambda_old = 0.0, lambda_new;
+
+    for (int iter = 0; iter < maxIter; iter++) {
+        w = multiply(A, v);        // Av
+        lambda_new = dot(w, v);    // lambda = (w, v)
+        normalize(w);              // Нормализация w
+        if (abs(lambda_new - lambda_old) < tol) break;  // Проверка сходимости
+        lambda_old = lambda_new;
+        v = w;                     // Обновление v
+    }
+
+    return {lambda_new, v};        // Возврат собственного значения и вектора
+}
+
+int main() {
+    // Определение матрицы A
+    vector<vector<double>> A = {{4, 1}, {1, 3}};
+    vector<double> v = {1, 1};  // Начальный вектор
+
+    auto [eigenvalue, eigenvector] = powerMethod(A, v, 1000, 1e-7);
+    cout << "Собственное значение: " << eigenvalue << endl;
+    cout << "Собственный вектор: [";
+    for (double x : eigenvector) cout << x << " ";
+    cout << "]" << endl;
+
+    return 0;
+}
+```
+
+Этот код сначала определяет матрицу \( A \) и начальный вектор \( v \). Затем выполняет степенной метод, используя заданное количество итераций `maxIter` и точность `tol`. В результате выводится найденное собственное значение и соответствующий собственный вектор.

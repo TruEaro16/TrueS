@@ -1,0 +1,79 @@
+#include <iostream>
+#include <cmath>
+
+using namespace std;
+
+// Функция для умножения матрицы на вектор
+double* multiply(double** A, double* v, int n) {
+    double* result = new double[n];
+    for (int i = 0; i < n; i++) {
+        result[i] = 0.0;
+        for (int j = 0; j < n; j++) {
+            result[i] += A[i][j] * v[j];
+        }
+    }
+    return result;
+}
+
+// Функция для вычисления скалярного произведения двух векторов
+double dot(double* a, double* b, int n) {
+    double sum = 0.0;
+    for (int i = 0; i < n; i++) {
+        sum += a[i] * b[i];
+    }
+    return sum;
+}
+
+// Функция для нормализации вектора
+void normalize(double* v, int n) {
+    double norm = sqrt(dot(v, v, n));
+    for (int i = 0; i < n; i++) {
+        v[i] /= norm;
+    }
+}
+
+// Степенной метод
+pair<double, double*> powerMethod(double** A, double* v, int n, int maxIter, double tol) {
+    double* w = nullptr;
+    double lambda_old = 0.0, lambda_new = 0.0;
+
+    for (int iter = 0; iter < maxIter; iter++) {
+        w = multiply(A, v, n);
+        lambda_new = dot(w, v, n);
+        normalize(w, n);
+        if (fabs(lambda_new - lambda_old) < tol) break;
+        lambda_old = lambda_new;
+        delete[] v;
+        v = w;
+    }
+
+    return {lambda_new, v};
+}
+
+int main() {
+    int n = 2;
+    double** A = new double*[n];
+    for (int i = 0; i < n; i++) {
+        A[i] = new double[n];
+    }
+
+    A[0][0] = 4; A[0][1] = 1;
+    A[1][0] = 1; A[1][1] = 3;
+
+    double* v = new double[n];
+    v[0] = 1.0; v[1] = 1.0;
+
+    auto [eigenvalue, eigenvector] = powerMethod(A, v, n, 1000, 1e-7);
+    cout << "Собственное значение: " << eigenvalue << endl;
+    cout << "Собственный вектор: [";
+    for (int i = 0; i < n; i++) cout << eigenvector[i] << " ";
+    cout << "]" << endl;
+
+    for (int i = 0; i < n; i++) {
+        delete[] A[i];
+    }
+    delete[] A;
+    delete[] eigenvector;
+
+    return 0;
+}

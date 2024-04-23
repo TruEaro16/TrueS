@@ -1,1 +1,92 @@
+#include <fstream>
+#include <iostream>
+#include <cmath> // Для sqrt
+#include <cstring> // Для memcpy
 
+using namespace std;
+
+int main() {
+    fstream f;
+    f.open("C:\\Users\\stud\\Desktop\\Test_int.mtx");
+
+    int n, m, Nenol;
+    f >> n >> m >> Nenol;
+
+    // Выделяем память под массивы
+    double* AV = new double[Nenol]();
+    int* numCols = new int[Nenol]();
+    int* numRows = new int[Nenol]();
+    double* b = new double[n](); // Вектор b
+    double* x = new double[n](); // Вектор x
+    double* r = new double[n](); // Вектор невязки r
+
+    // Инициализация векторов
+    for (int i = 0; i < n; i++) {
+        x[i] = 0; // Начальное приближение x = 0
+        b[i] = 1.0; // Можно изменить на другие значения
+    }
+
+    for (int i = 0; i < Nenol; i++) {
+        f >> numRows[i] >> numCols[i] >> AV[i];
+        numRows[i]--; // Переводим в нумерацию с 0
+        numCols[i]--;
+    }
+
+    double tol = 1e-6; // Точность
+    int maxIter = 1000; // Максимальное количество итераций
+    int iter = 0;
+    double alpha, rsold, rsnew, rAr;
+
+    // Начальное значение невязки r = b - Ax = b, так как x = 0
+    memcpy(r, b, n * sizeof(double));
+    rsold = 0;
+    for (int i = 0; i < n; i++) {
+        rsold += r[i] * r[i];
+    }
+
+    while (iter < maxIter && sqrt(rsold) > tol) {
+        iter++;
+
+        // Вычисляем произведение A*r (Ax)
+        double* Ar = new double[n]();
+        for (int i = 0; i < Nenol; i++) {
+            Ar[numRows[i]] += AV[i] * r[numCols[i]];
+        }
+
+        // Вычисляем alpha = rsold / (r^T * Ar)
+        rAr = 0;
+        for (int i = 0; i < n; i++) {
+            rAr += r[i] * Ar[i];
+        }
+        alpha = rsold / rAr;
+
+        // Обновляем x = x + alpha * r и вычисляем новую невязку
+        rsnew = 0;
+        for (int i = 0; i < n; i++) {
+            x[i] += alpha * r[i];
+            r[i] -= alpha * Ar[i];
+            rsnew += r[i] * r[i];
+        }
+
+        // Обновляем rsold для следующей итерации
+        rsold = rsnew;
+
+        // Освобождаем память от Ar
+        delete[] Ar;
+    }
+
+    cout << "Результат x после " << iter << " итераций:" << endl;
+    for (int i = 0; i < n; i++) {
+        cout << x[i] << " ";
+    }
+    cout << endl;
+
+    delete[] AV;
+    delete[] numCols;
+    delete[] numRows;
+    delete[] b;
+    delete[] x;
+    delete[] r;
+
+    return 0;
+}

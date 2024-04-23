@@ -1,126 +1,103 @@
-#include<iostream>
-#include <math.h>
-#include <stdlib.h>
 #include <fstream>
-#include <vector>
+#include <iostream>
+#include <cmath> // Для sqrt
+#include <cstring> // Для memcpy
+
 using namespace std;
 
-struct List {
-    double* AV;    // Array of non-zero matrix elements
-    int* ANR;      // Array of corresponding row indices
-    int* ANL;      // Array with starting points of columns in AV and ANR
-    int n, k;      // Dimension of the matrix and number of non-zero elements
-    double* b;     // Right-hand side vector
-};
+int main() {
+    fstream f, bFile;
+    f.open("C:\\Users\\stud\\Desktop\\Test_int.mtx");
+    bFile.open("C:\\Users\\stud\\Desktop\\BB.txt"); // Открываем файл с вектором b
 
-void readCSCMatrix(ifstream& file, List& A) {
-    int n, k;
-    file >> n >> k;
-    A.n = n;
-    A.k = k;
-    A.AV = new double[k];
-    A.ANR = new int[k];
-    A.ANL = new int[n+1];
-    A.b = new double[n];
-    for (int i = 0; i < n; ++i) {
-        file >> A.b[i];
-    }
-    for (int i = 0; i < n+1; ++i) {
-        file >> A.ANL[i];
-    }
-    for (int i = 0; i < k; ++i) {
-        file >> A.ANR[i];
-    }
-    for (int i = 0; i < k; ++i) {
-        file >> A.AV[i];
-    }
-}
+    int n, m, Nenol;
+    f >> n >> m >> Nenol;
 
-void SteepestDescent(List& A, double* x) {
-    double* r = new double[A.n];
-    double* p = new double[A.n];
-    double alpha, rsold, rsnew;
-    double tol = 1e-8;
-    int max_iter = 1000;
+    // Выделяем память под массивы
+    double* AV = new double[Nenol]();
+    int* numCols = new int[Nenol]();
+    int* numRows = new int[Nenol]();
+    double* b = new double[n](); // Вектор b
+    double* x = new double[n](); // Вектор x
+    double* r = new double[n](); // Вектор невязки r
 
-    // Initial guess (zero vector)
-    for (int i = 0; i < A.n; ++i) {
+    // Чтение вектора b из файла
+    for (int i = 0; i < n; i++) {
+        if (!(bFile >> b[i])) {
+            cout << "Ошибка чтения вектора b из файла." << endl;
+            return -1; // Выход при ошибке чтения
+        }
+    }
+
+    // Инициализация начального приближения x = 0
+    for (int i = 0; i < n; i++) {
         x[i] = 0;
     }
 
-    // Compute initial residual r = b - Ax, here A*x is initially zero
-    for (int i = 0; i < A.n; ++i) {
-        r[i] = A.b[i];
-        p[i] = r[i];
+    for (int i = 0; i < Nenol; i++) {
+        f >> numRows[i] >> numCols[i] >> AV[i];
+        numRows[i]--; // Переводим в нумерацию с 0
+        numCols[i]--;
     }
 
+    double tol = 1e-6; // Точность
+    int maxIter = 1000; // Максимальное количество итераций
+    int iter = 0;
+    double alpha, rsold, rsnew, rAr;
+
+    // Начальное значение невязки r = b - Ax = b, так как x = 0
+    memcpy(r, b, n * sizeof(double));
     rsold = 0;
-    for (int i = 0; i < A.n; ++i) {
+    for (int i = 0; i < n; i++) {
         rsold += r[i] * r[i];
     }
 
-    for (int it = 0; it < max_iter && rsold > tol*tol; ++it) {
-        double* Ap = new double[A.n]();
-        for (int j = 0; j < A.n; ++j) {
-            for (int k = A.ANL[j]; k < A.ANL[j+1]; ++k) {
-                Ap[j] += A.AV[k] * p[A.ANR[k]];
-            }
+    while (iter < maxIter && sqrt(rsold) > tol) {
+        iter++;
+
+        // Вычисляем произведение A*r (Ax)
+        double* Ar = new double[n]();
+        for (int i = 0; i < Nenol; i++) {
+            Ar[numRows[i]] += AV[i] * r[numCols[i]];
         }
 
-        double pAp = 0;
-        for (int i = 0; i < A.n; ++i) {
-            pAp += p[i] * Ap[i];
+        // Вычисляем alpha = rsold / (r^T * Ar)
+        rAr = 0;
+        for (int i = 0; i < n; i++) {
+            rAr += r[i] * Ar[i];
         }
+        alpha = rsold / rAr;
 
-        alpha = rsold / pAp;
-        for (int i = 0; i < A.n; ++i) {
-            x[i] += alpha * p[i];
-            r[i] -= alpha * Ap[i];
-        }
-
+        // Обновляем x = x + alpha * r и вычисляем новую невязку
         rsnew = 0;
-        for (int i = 0; i < A.n; ++i) {
+        for (int i = 0; i < n; i++) {
+            x[i] += alpha * r[i];
+            r[i] -= alpha * Ar[i];
             rsnew += r[i] * r[i];
         }
 
-        for (int i = 0; i < A.n; ++i) {
-            p[i] = r[i];
-        }
-
+        // Обновляем rsold для следующей итерации
         rsold = rsnew;
-        delete[] Ap;
+
+        // Освобождаем память от Ar
+        delete[] Ar;
     }
 
-    delete[] r;
-    delete[] p;
-}
-
-int main() {
-    List A;
-    double* x;
-    ifstream file("matrix.txt");
-    readCSCMatrix(file, A);
-    x = new double[A.n];
-    SteepestDescent(A, x);
-
-    for (int i = 0; i < A.n; ++i) {
+    cout << "Результат x после " << iter << " итераций:" << endl;
+    for (int i = 0; i < n; i++) {
         cout << x[i] << " ";
     }
     cout << endl;
 
+    delete[] AV;
+    delete[] numCols;
+    delete[] numRows;
+    delete[] b;
     delete[] x;
-    delete[] A.AV;
-    delete[] A.ANR;
-    delete[] A.ANL;
-    delete[] A.b;
+    delete[] r;
 
+    f.close();
+    bFile.close();
+    
     return 0;
 }
-```
-
-Обратите внимание на следующие моменты в коде:
-- Начальное приближение \( x_0 \) — нулевой вектор.
-- Шаги алгоритма реализованы в функции `SteepestDescent`.
-- Ввод/вывод и структура хранения данных соответствуют формату CSC.
-
-Этот код следует проверить на корректность и эффективность, учитывая, что он предполагает использование исключительно симметричных и положительно определённых матриц.

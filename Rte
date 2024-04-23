@@ -12,7 +12,7 @@ struct CSCMatrix {
     double* b;         // вектор правой части
 };
 
-void readCSCMatrix(ifstream& file, CSCMatrix& A) {
+void readCSCMatrix(ifstream& file, ifstream& fg, CSCMatrix& A) {
     file >> A.n >> A.k;
     A.AV = new double[A.k];
     A.ANR = new int[A.k];
@@ -25,7 +25,7 @@ void readCSCMatrix(ifstream& file, CSCMatrix& A) {
         file >> A.ANL[i];
     }
     for (int i = 0; i < A.n; i++) {
-        file >> A.b[i];
+        fg >> A.b[i];
     }
 }
 
@@ -81,7 +81,8 @@ void fastestDescent(CSCMatrix& A) {
         rsold = rsnew;
     }
 
-    cout << "Результат x после " << iter << " итераций:" << endl;
+    cout << "Iterationts " << iter << endl;
+    cout << "Result: " << endl;
     for (int i = 0; i < A.n; i++) {
         cout << x[i] << " ";
     }
@@ -94,12 +95,13 @@ void fastestDescent(CSCMatrix& A) {
 
 int main() {
     CSCMatrix A;
-    ifstream file("C:\\Users\\stud\\Desktop\\matr.txt");
+    ifstream file("C:\\Users\\stud\\Desktop\\Test_int.mtx");
+    ifstream fg("C:\\Users\\stud\\Desktop\\BB.txt");
     if (!file) {
         cout << "Не удалось открыть файл." << endl;
         return 1;
     }
-    readCSCMatrix(file, A);
+    readCSCMatrix(file, fg, A);
     fastestDescent(A);
     delete[] A.AV;
     delete[] A.ANR;

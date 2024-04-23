@@ -20,9 +20,11 @@ void readCSCMatrix(ifstream& file, ifstream& fg, CSCMatrix& A) {
     A.b = new double[A.n];
     for (int i = 0; i < A.k; i++) {
         file >> A.ANR[i] >> A.AV[i];
+        A.ANR[i]--; // Уменьшаем индексы строк на 1 для нуль-индексации в C++
     }
     for (int i = 0; i <= A.n; i++) {
         file >> A.ANL[i];
+        A.ANL[i]--; // Уменьшаем индексы начала столбцов на 1
     }
     for (int i = 0; i < A.n; i++) {
         fg >> A.b[i];
@@ -81,7 +83,7 @@ void fastestDescent(CSCMatrix& A) {
         rsold = rsnew;
     }
 
-    cout << "Iterationts " << iter << endl;
+    cout << "Iterations: " << iter << endl;
     cout << "Result: " << endl;
     for (int i = 0; i < A.n; i++) {
         cout << x[i] << " ";
@@ -97,7 +99,7 @@ int main() {
     CSCMatrix A;
     ifstream file("C:\\Users\\stud\\Desktop\\Test_int.mtx");
     ifstream fg("C:\\Users\\stud\\Desktop\\BB.txt");
-    if (!file) {
+    if (!file || !fg) {
         cout << "Не удалось открыть файл." << endl;
         return 1;
     }
@@ -107,5 +109,4 @@ int main() {
     delete[] A.ANR;
     delete[] A.ANL;
     delete[] A.b;
-    return 0;
-}
+   

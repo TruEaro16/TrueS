@@ -1,79 +1,157 @@
+#include <fstream>
 #include <iostream>
-#include <cmath>
-
+#include <string>
 using namespace std;
 
-// Функция для умножения матрицы на вектор
-double* multiply(double** A, double* v, int n) {
-    double* result = new double[n];
-    for (int i = 0; i < n; i++) {
-        result[i] = 0.0;
-        for (int j = 0; j < n; j++) {
-            result[i] += A[i][j] * v[j];
+int main()
+{
+    fstream f, g, v;
+    f.open("C:\\Users\\stud\\Desktop\\Test_int.mtx");
+    g.open("C:\\Users\\stud\\Desktop\\AA.txt");
+    v.open("C:\\Users\\stud\\Desktop\\BB.txt");
+    int n, m, Nenol;
+    f >> n;
+    f >> m;
+    f >> Nenol;
+    cout << Nenol << " <- Nenol" << endl;
+
+    // Выделяем память под массивы
+    double* AV = new double[Nenol]();
+    int* numCols = new int[Nenol]();
+    int* ANL = new int[n + 1]();
+    int* numRows = new int[Nenol]();
+    int* Svobodniy = new int[n]();
+    for (int i = 0; i < Nenol; i++)
+    {
+        f >> numRows[i];
+        f >> numCols[i];
+        f >> AV[i];
+        //ANL[i] = i;
+    }
+    double** matrix = new double* [n]();
+    for (int i = 0; i < n; i++)
+    {
+        matrix[i] = new double[m];
+        for (int j = 0; j < m; j++)
+        {
+            matrix[i][j] = 0;
         }
     }
-    return result;
-}
 
-// Функция для вычисления скалярного произведения двух векторов
-double dot(double* a, double* b, int n) {
-    double sum = 0.0;
-    for (int i = 0; i < n; i++) {
-        sum += a[i] * b[i];
-    }
-    return sum;
-}
 
-// Функция для нормализации вектора
-void normalize(double* v, int n) {
-    double norm = sqrt(dot(v, v, n));
-    for (int i = 0; i < n; i++) {
-        v[i] /= norm;
-    }
-}
-
-// Степенной метод
-pair<double, double*> powerMethod(double** A, double* v, int n, int maxIter, double tol) {
-    double* w = nullptr;
-    double lambda_old = 0.0, lambda_new = 0.0;
-
-    for (int iter = 0; iter < maxIter; iter++) {
-        w = multiply(A, v, n);
-        lambda_new = dot(w, v, n);
-        normalize(w, n);
-        if (fabs(lambda_new - lambda_old) < tol) break;
-        lambda_old = lambda_new;
-        delete[] v;
-        v = w;
+    ANL[0] = 0;
+    for (int i = 0; i < Nenol; i++)
+    {
+        int row = numRows[i] - 1;
+        int col = numCols[i] - 1;
+        matrix[row][col] = AV[i];
+        ANL[row + 1] = i + 1;
     }
 
-    return {lambda_new, v};
-}
 
-int main() {
-    int n = 2;
-    double** A = new double*[n];
-    for (int i = 0; i < n; i++) {
-        A[i] = new double[n];
+
+    cout << "Matrix:" << endl;
+    for (int i = 0; i < n; i++)
+    {
+        for (int j = 0; j < m; j++)
+        {
+            cout << matrix[i][j] << " ";
+        }
+        cout << endl;
     }
 
-    A[0][0] = 4; A[0][1] = 1;
-    A[1][0] = 1; A[1][1] = 3;
+    cout << "AV:" << endl;
+    for (int i = 0; i < Nenol; i++)
+    {
+        cout << AV[i] << " ";
 
-    double* v = new double[n];
-    v[0] = 1.0; v[1] = 1.0;
-
-    auto [eigenvalue, eigenvector] = powerMethod(A, v, n, 1000, 1e-7);
-    cout << "Собственное значение: " << eigenvalue << endl;
-    cout << "Собственный вектор: [";
-    for (int i = 0; i < n; i++) cout << eigenvector[i] << " ";
-    cout << "]" << endl;
-
-    for (int i = 0; i < n; i++) {
-        delete[] A[i];
     }
-    delete[] A;
-    delete[] eigenvector;
+    cout << endl;
 
-    return 0;
+    cout << "ANC:" << endl;
+    for (int i = 0; i < Nenol; i++)
+    {
+        cout << numCols[i] << " ";
+    }
+    cout << endl;
+
+    cout << "ANL:" << endl;
+    for (int i = 0; i < n + 1; i++)
+    {
+        cout << ANL[i] << " ";
+    }
+
+    for (int i = 0; i < n; i++)
+    {
+        for (int j = 0; j < n; j++)
+        {
+            if (matrix[i][j] != 0)
+                Svobodniy[i] += matrix[i][j];
+        }
+    }
+
+    cout << endl << "Svobodniy:" << endl;
+    for (int i = 0; i < n; i++)
+    {
+        cout << Svobodniy[i] << " ";
+    }
+
+    g << n << endl;
+    for (int i = 0; i < n; i++)
+    {
+        for (int j = 0; j < n; j++)
+        {
+            g << matrix[i][j] << " ";
+            //g << endl;
+        }
+        g << endl;
+    }
+
+    for (int i = 0; i < n; i++)
+    {
+        v << Svobodniy[i] << " ";
+
+    }
+
+
+
+    for (int i = 0; i < n; i++)
+    {
+        delete[] matrix[i];
+    }
+    delete[] matrix;
+    delete[] AV;
+    delete[] numCols;
+    delete[] ANL;
+    delete[] numRows;
+    delete[] Svobodniy;
 }
+
+
+/*for (int i = 0; i < n; i++)
+{
+    A[i] = new double[n];
+}*/
+
+
+
+//Заполнение матрицы данными из файла
+/*for (int i = 0; i < n; i++)
+{
+    for (int j = 0; j < m; j++)
+    {
+        f >> A[i][j];
+    }
+}*/
+
+
+/*cout << "A:" << " ";//вывод матрицы А
+for (int i = 0; i < n; i++)//вывод матрицы
+{
+    cout << endl;
+    for (int j = 0; j < m; j++)
+    {
+        cout << A[i][j] << " ";
+    }
+}
+cout << endl;*/

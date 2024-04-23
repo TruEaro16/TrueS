@@ -21,6 +21,12 @@ int main() {
     double* b = new double[n](); // Вектор b
     double* x = new double[n](); // Вектор x
     double* r = new double[n](); // Вектор невязки r
+    double** A = new double*[n]; // Полная матрица A
+
+    // Инициализация матрицы A
+    for (int i = 0; i < n; i++) {
+        A[i] = new double[m]();
+    }
 
     // Чтение вектора b из файла
     for (int i = 0; i < n; i++) {
@@ -39,6 +45,16 @@ int main() {
         f >> numRows[i] >> numCols[i] >> AV[i];
         numRows[i]--; // Переводим в нумерацию с 0
         numCols[i]--;
+        A[numRows[i]][numCols[i]] = AV[i]; // Заполняем матрицу A
+    }
+
+    // Вывод матрицы A на экран
+    cout << "Матрица A:" << endl;
+    for (int i = 0; i < n; i++) {
+        for (int j = 0; j < m; j++) {
+            cout << A[i][j] << " ";
+        }
+        cout << endl;
     }
 
     double tol = 0.001; // Точность
@@ -47,8 +63,7 @@ int main() {
     double alpha, rsold, rsnew, rAr;
 
     // Начальное значение невязки r = b - Ax = b, так как x = 0
-    for (int i = 0; i < n; i++)
-    {
+    for (int i = 0; i < n; i++) {
         r[i] = b[i];
     }
     rsold = 0;
@@ -73,35 +88,38 @@ int main() {
         alpha = rsold / rAr;
 
         // Обновляем x = x + alpha * r и вычисляем новую невязку
-        rsnew = 0;
-        for (int i = 0; i < n; i++) {
-            x[i] += alpha * r[i];
-            r[i] -= alpha * Ar[i];
-            rsnew += r[i] * r[i];
-        }
-
-        // Обновляем rsold для следующей итерации
-        rsold = rsnew;
-
-        // Освобождаем память от Ar
-        delete[] Ar;
-    }
-
-    cout << "Результат x после " << iter << " итераций:" << endl;
+    rsnew = 0;
     for (int i = 0; i < n; i++) {
-        cout << x[i] << " ";
+        x[i] += alpha * r[i];
+        r[i] -= alpha * Ar[i];
+        rsnew += r[i] * r[i];
     }
-    cout << endl;
 
-    delete[] AV;
-    delete[] numCols;
-    delete[] numRows;
-    delete[] b;
-    delete[] x;
-    delete[] r;
+    // Обновляем rsold для следующей итерации
+    rsold = rsnew;
 
-    f.close();
-    br.close();
-
-    return 0;
+    // Освобождаем память от Ar
+    delete[] Ar;
 }
+
+cout << "Результат x после " << iter << " итераций:" << endl;
+for (int i = 0; i < n; i++) {
+    cout << x[i] << " ";
+}
+cout << endl;
+
+for (int i = 0; i < n; i++) {
+    delete[] A[i];
+}
+delete[] A;
+delete[] AV;
+delete[] numCols;
+delete[] numRows;
+delete[] b;
+delete[] x;
+delete[] r;
+
+f.close();
+br.close();
+
+return 0;

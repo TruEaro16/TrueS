@@ -1,112 +1,15 @@
-#include <iostream>
-#include <fstream>
-#include <cmath>
-using namespace std;
-
-struct CSCMatrix {
-    int n;             // размерность матрицы
-    int k;             // количество ненулевых элементов
-    double* AV;        // значения ненулевых элементов
-    int* ANR;          // номера строк для элементов
-    int* ANL;          // указатели на начала столбцов в AV и ANR
-    double* b;         // вектор правой части
-};
-
-void readCSCMatrix(ifstream& file, ifstream& fg, CSCMatrix& A) {
-    file >> A.n >> A.k;
-    A.AV = new double[A.k];
-    A.ANR = new int[A.k];
-    A.ANL = new int[A.n + 1];
-    A.b = new double[A.n];
-    for (int i = 0; i < A.k; i++) {
-        file >> A.ANR[i] >> A.AV[i];
-        A.ANR[i]--; // Уменьшаем индексы строк на 1 для нуль-индексации в C++
-    }
-    for (int i = 0; i <= A.n; i++) {
-        file >> A.ANL[i];
-        A.ANL[i]--; // Уменьшаем индексы начала столбцов на 1
-    }
-    for (int i = 0; i < A.n; i++) {
-        fg >> A.b[i];
-    }
+// Вычисляем A*r
+for (int i = 0; i < A.n; i++) {
+    Ax[i] = 0;  // Обнуляем Ax перед использованием
 }
 
-void fastestDescent(CSCMatrix& A) {
-    double* x = new double[A.n]();
-    double* r = new double[A.n];
-    double* Ax = new double[A.n]();
-
-    // Начальное значение Ax = 0, x = 0, r = b
-    for (int i = 0; i < A.n; i++) {
-        r[i] = A.b[i];
+for (int j = 0; j < A.n; j++) {
+    for (int i = A.ANL[j]; i < A.ANL[j + 1]; i++) {
+        int row = A.ANR[i];  // Индекс строки для текущего элемента
+        if (row >= 0 && row < A.n) {  // Проверка на корректность индекса строки
+            Ax[row] += A.AV[i] * r[j];
+        } else {
+            cout << "Ошибка индекса: row = " << row << ", n = " << A.n << endl;
+        }
     }
-
-    double alpha, rsold = 0, rsnew = 0, rAr;
-    int maxIter = 1000;
-    double tol = 1e-6;
-    int iter = 0;
-
-    for (int i = 0; i < A.n; i++) {
-        rsold += r[i] * r[i];
-    }
-
-    while (iter < maxIter && sqrt(rsold) > tol) {
-        iter++;
-
-        // Вычисляем A*r
-        for (int i = 0; i < A.n; i++) {
-            Ax[i] = 0;
-        }
-        for (int j = 0; j < A.n; j++) {
-            for (int i = A.ANL[j]; i < A.ANL[j + 1]; i++) {
-                Ax[A.ANR[i]] += A.AV[i] * r[j];
-            }
-        }
-
-        // Вычисляем alpha = (r^T * r) / (r^T * A * r)
-        rAr = 0;
-        for (int i = 0; i < A.n; i++) {
-            rAr += r[i] * Ax[i];
-        }
-        alpha = rsold / rAr;
-
-        // Обновляем x и r
-        rsnew = 0;
-        for (int i = 0; i < A.n; i++) {
-            x[i] += alpha * r[i];
-            r[i] -= alpha * Ax[i];
-            rsnew += r[i] * r[i];
-        }
-        if (sqrt(rsnew) < tol) {
-            break;
-        }
-        rsold = rsnew;
-    }
-
-    cout << "Iterations: " << iter << endl;
-    cout << "Result: " << endl;
-    for (int i = 0; i < A.n; i++) {
-        cout << x[i] << " ";
-    }
-    cout << endl;
-
-    delete[] x;
-    delete[] r;
-    delete[] Ax;
 }
-
-int main() {
-    CSCMatrix A;
-    ifstream file("C:\\Users\\stud\\Desktop\\Test_int.mtx");
-    ifstream fg("C:\\Users\\stud\\Desktop\\BB.txt");
-    if (!file || !fg) {
-        cout << "Не удалось открыть файл." << endl;
-        return 1;
-    }
-    readCSCMatrix(file, fg, A);
-    fastestDescent(A);
-    delete[] A.AV;
-    delete[] A.ANR;
-    delete[] A.ANL;
-    delete[] A.b;
-   

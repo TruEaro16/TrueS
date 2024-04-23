@@ -1,112 +1,126 @@
-#include <iostream>
+#include<iostream>
+#include <math.h>
+#include <stdlib.h>
 #include <fstream>
-#include <cmath>
+#include <vector>
 using namespace std;
 
-struct CSCMatrix {
-    int n;             // размерность матрицы
-    int k;             // количество ненулевых элементов
-    double* AV;        // значения ненулевых элементов
-    int* ANR;          // номера строк для элементов
-    int* ANL;          // указатели на начала столбцов в AV и ANR
-    double* b;         // вектор правой части
+struct List {
+    double* AV;    // Array of non-zero matrix elements
+    int* ANR;      // Array of corresponding row indices
+    int* ANL;      // Array with starting points of columns in AV and ANR
+    int n, k;      // Dimension of the matrix and number of non-zero elements
+    double* b;     // Right-hand side vector
 };
 
-void readCSCMatrix(ifstream& file, ifstream& fg, CSCMatrix& A) {
-    file >> A.n >> A.k;
-    A.AV = new double[A.k];
-    A.ANR = new int[A.k];
-    A.ANL = new int[A.n + 1];
-    A.b = new double[A.n];
-    for (int i = 0; i < A.k; i++) {
-        file >> A.ANR[i] >> A.AV[i];
-        A.ANR[i]--;
+void readCSCMatrix(ifstream& file, List& A) {
+    int n, k;
+    file >> n >> k;
+    A.n = n;
+    A.k = k;
+    A.AV = new double[k];
+    A.ANR = new int[k];
+    A.ANL = new int[n+1];
+    A.b = new double[n];
+    for (int i = 0; i < n; ++i) {
+        file >> A.b[i];
     }
-    for (int i = 0; i <= A.n; i++) {
+    for (int i = 0; i < n+1; ++i) {
         file >> A.ANL[i];
-        A.ANL[i]--;
     }
-    for (int i = 0; i < A.n; i++) {
-        fg >> A.b[i];
+    for (int i = 0; i < k; ++i) {
+        file >> A.ANR[i];
+    }
+    for (int i = 0; i < k; ++i) {
+        file >> A.AV[i];
     }
 }
 
-void fastestDescent(CSCMatrix& A) {
-    double* x = new double[A.n]();
+void SteepestDescent(List& A, double* x) {
     double* r = new double[A.n];
-    double* Ax = new double[A.n]();
-    memcpy(r, A.b, A.n * sizeof(double)); // Инициализация r = b
+    double* p = new double[A.n];
+    double alpha, rsold, rsnew;
+    double tol = 1e-8;
+    int max_iter = 1000;
 
-    double alpha, rsold = 0, rsnew = 0, rAr;
-    int maxIter = 1000;
-    double tol = 1e-6;
-    int iter = 0;
+    // Initial guess (zero vector)
+    for (int i = 0; i < A.n; ++i) {
+        x[i] = 0;
+    }
 
-    for (int i = 0; i < A.n; i++) {
+    // Compute initial residual r = b - Ax, here A*x is initially zero
+    for (int i = 0; i < A.n; ++i) {
+        r[i] = A.b[i];
+        p[i] = r[i];
+    }
+
+    rsold = 0;
+    for (int i = 0; i < A.n; ++i) {
         rsold += r[i] * r[i];
     }
 
-    while (iter < maxIter && sqrt(rsold) > tol) {
-        iter++;
-
-        // Очистка Ax перед новым умножением
-        fill_n(Ax, A.n, 0.0);
-
-        // Вычисляем A*r
-        for (int j = 0; j < A.n; j++) {
-            for (int i = A.ANL[j]; i < A.ANL[j + 1]; i++) {
-                Ax[A.ANR[i]] += A.AV[i] * r[j];
+    for (int it = 0; it < max_iter && rsold > tol*tol; ++it) {
+        double* Ap = new double[A.n]();
+        for (int j = 0; j < A.n; ++j) {
+            for (int k = A.ANL[j]; k < A.ANL[j+1]; ++k) {
+                Ap[j] += A.AV[k] * p[A.ANR[k]];
             }
         }
 
-        // Вычисляем alpha
-        rAr = 0;
-        for (int i = 0; i < A.n; i++) {
-            rAr += r[i] * Ax[i];
+        double pAp = 0;
+        for (int i = 0; i < A.n; ++i) {
+            pAp += p[i] * Ap[i];
         }
-        alpha = rsold / rAr;
 
-        // Обновляем x и r
+        alpha = rsold / pAp;
+        for (int i = 0; i < A.n; ++i) {
+            x[i] += alpha * p[i];
+            r[i] -= alpha * Ap[i];
+        }
+
         rsnew = 0;
-        for (int i = 0; i < A.n; i++) {
-            x[i] += alpha * r[i];
-            r[i] -= alpha * Ax[i];
+        for (int i = 0; i < A.n; ++i) {
             rsnew += r[i] * r[i];
         }
-        if (sqrt(rsnew) < tol) {
-            break;
+
+        for (int i = 0; i < A.n; ++i) {
+            p[i] = r[i];
         }
+
         rsold = rsnew;
+        delete[] Ap;
     }
 
-    cout << "Iterations: " << iter << endl;
-    cout << "Result: " << endl;
-    for (int i = 0; i < A.n; i++) {
+    delete[] r;
+    delete[] p;
+}
+
+int main() {
+    List A;
+    double* x;
+    ifstream file("matrix.txt");
+    readCSCMatrix(file, A);
+    x = new double[A.n];
+    SteepestDescent(A, x);
+
+    for (int i = 0; i < A.n; ++i) {
         cout << x[i] << " ";
     }
     cout << endl;
 
     delete[] x;
-    delete[] r;
-    delete[] Ax;
-}
-
-int main() {
-    CSCMatrix A;
-    ifstream file("C:\\Users\\stud\\Desktop\\Test_int.mtx");
-    ifstream fg("C:\\Users\\stud\\Desktop\\BB.txt");
-    if (!file || !fg) {
-        cout << "Не удалось открыть файл." << endl;
-        return 1;
-    }
-    readCSCMatrix(file, fg, A);
-    fastestDescent(A);
     delete[] A.AV;
     delete[] A.ANR;
     delete[] A.ANL;
     delete[] A.b;
+
     return 0;
 }
 ```
 
-Этот код включает необходимые проверки и корректировки для умножения матрицы в формате CSC на вектор, вычисления шага и обновления векторов. Если результаты всё ещё неверные, рекомендуется проверить правильность входных данных и убедиться, что алгоритм соответствует математическим требованиям задачи.
+Обратите внимание на следующие моменты в коде:
+- Начальное приближение \( x_0 \) — нулевой вектор.
+- Шаги алгоритма реализованы в функции `SteepestDescent`.
+- Ввод/вывод и структура хранения данных соответствуют формату CSC.
+
+Этот код следует проверить на корректность и эффективность, учитывая, что он предполагает использование исключительно симметричных и положительно определённых матриц.

@@ -6,9 +6,10 @@
 using namespace std;
 
 int main() {
-    fstream f, bFile;
+    setlocale(LC_ALL, "Russian");
+    fstream f, br;
     f.open("C:\\Users\\stud\\Desktop\\Test_int.mtx");
-    bFile.open("C:\\Users\\stud\\Desktop\\BB.txt"); // Открываем файл с вектором b
+    br.open("C:\\Users\\stud\\Desktop\\BB.txt");
 
     int n, m, Nenol;
     f >> n >> m >> Nenol;
@@ -23,7 +24,7 @@ int main() {
 
     // Чтение вектора b из файла
     for (int i = 0; i < n; i++) {
-        if (!(bFile >> b[i])) {
+        if (!(br >> b[i])) {
             cout << "Ошибка чтения вектора b из файла." << endl;
             return -1; // Выход при ошибке чтения
         }
@@ -40,13 +41,16 @@ int main() {
         numCols[i]--;
     }
 
-    double tol = 1e-6; // Точность
+    double tol = 0.001; // Точность
     int maxIter = 1000; // Максимальное количество итераций
     int iter = 0;
     double alpha, rsold, rsnew, rAr;
 
     // Начальное значение невязки r = b - Ax = b, так как x = 0
-    memcpy(r, b, n * sizeof(double));
+    for (int i = 0; i < n; i++)
+    {
+        r[i] = b[i];
+    }
     rsold = 0;
     for (int i = 0; i < n; i++) {
         rsold += r[i] * r[i];
@@ -97,7 +101,7 @@ int main() {
     delete[] r;
 
     f.close();
-    bFile.close();
-    
+    br.close();
+
     return 0;
 }

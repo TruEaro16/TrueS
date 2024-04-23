@@ -1,92 +1,193 @@
+#include<iostream>
+#include <math.h>
+#include <stdlib.h>
 #include <fstream>
-#include <iostream>
-#include <cmath> // Для sqrt
-#include <cstring> // Для memcpy
-
 using namespace std;
-
-int main() {
-    fstream f;
-    f.open("C:\\Users\\stud\\Desktop\\Test_int.mtx");
-
-    int n, m, Nenol;
-    f >> n >> m >> Nenol;
-
-    // Выделяем память под массивы
-    double* AV = new double[Nenol]();
-    int* numCols = new int[Nenol]();
-    int* numRows = new int[Nenol]();
-    double* b = new double[n](); // Вектор b
-    double* x = new double[n](); // Вектор x
-    double* r = new double[n](); // Вектор невязки r
-
-    // Инициализация векторов
-    for (int i = 0; i < n; i++) {
-        x[i] = 0; // Начальное приближение x = 0
-        b[i] = 1.0; // Можно изменить на другие значения
+struct List
+{
+    double** a;
+    int n, m;
+    double* b;
+    int k;
+    double* AV;
+    int* ANL;
+    int* ANR;
+};
+void izfile(ifstream& e, List& A)
+{
+    e >> A.n;
+    e >> A.m;
+    e >> A.k;
+    cout << A.n << " " << A.m << endl;
+    A.a = new double* [A.n];
+    for (int i = 0; i < A.m; i++)
+    {
+        A.a[i] = new double[A.m];
     }
-
-    for (int i = 0; i < Nenol; i++) {
-        f >> numRows[i] >> numCols[i] >> AV[i];
-        numRows[i]--; // Переводим в нумерацию с 0
-        numCols[i]--;
+    for (int i = 0; i < A.n; i++)
+    {
+        for (int j = 0; j < A.m; j++)
+        {
+            A.a[i][j] = 0;
+        }
     }
+    int str; int stl; double zn;
+    for (int i = 0; i < A.k; i++)
+    {
+        e >> str;
+        e >> stl;
+        e >> zn;
+        A.a[str - 1][stl - 1] = zn;
 
-    double tol = 1e-6; // Точность
-    int maxIter = 1000; // Максимальное количество итераций
-    int iter = 0;
-    double alpha, rsold, rsnew, rAr;
-
-    // Начальное значение невязки r = b - Ax = b, так как x = 0
-    memcpy(r, b, n * sizeof(double));
-    rsold = 0;
-    for (int i = 0; i < n; i++) {
-        rsold += r[i] * r[i];
     }
+    for (int i = 0; i < A.n; i++)
+    {
+        cout << endl;
+        for (int j = 0; j < A.m; j++)
+        {
+            cout << A.a[i][j] << " ";
+        }
+    }
+}
 
-    while (iter < maxIter && sqrt(rsold) > tol) {
-        iter++;
-
-        // Вычисляем произведение A*r (Ax)
-        double* Ar = new double[n]();
-        for (int i = 0; i < Nenol; i++) {
-            Ar[numRows[i]] += AV[i] * r[numCols[i]];
+void cscf(List& A, ifstream& e)
+{
+    A.b = new double[A.n]();
+    A.AV = new double[A.k];
+    A.ANR = new int[A.k];
+    A.ANL = new int[A.n];
+    int c1, c2, c3; int l = 0; int sch = 0;
+    e >> c1; e >> c2; e >> c3;
+    for (int i = 0; i < A.k; i++)
+    {
+        e >> c3;
+        e >> A.ANR[i];
+        e >> A.AV[i];
+        if (c3 != l)
+        {
+            sch++;
+            l = c3;
+            A.ANL[l - 1] = sch - 1;
+        }
+        else
+            sch++;
+    }
+    int kolvo = 0; int index;
+    for (int i = 0; i < A.n - 1; i++)
+    {
+        kolvo = A.ANL[i + 1] - A.ANL[i];
+        index = A.ANL[i];
+        for (int h = index; h < A.ANL[i + 1]; h++)
+        {
+            A.b[i] = A.b[i] + A.AV[h];
         }
 
-        // Вычисляем alpha = rsold / (r^T * Ar)
-        rAr = 0;
-        for (int i = 0; i < n; i++) {
-            rAr += r[i] * Ar[i];
-        }
-        alpha = rsold / rAr;
-
-        // Обновляем x = x + alpha * r и вычисляем новую невязку
-        rsnew = 0;
-        for (int i = 0; i < n; i++) {
-            x[i] += alpha * r[i];
-            r[i] -= alpha * Ar[i];
-            rsnew += r[i] * r[i];
-        }
-
-        // Обновляем rsold для следующей итерации
-        rsold = rsnew;
-
-        // Освобождаем память от Ar
-        delete[] Ar;
     }
-
-    cout << "Результат x после " << iter << " итераций:" << endl;
-    for (int i = 0; i < n; i++) {
-        cout << x[i] << " ";
+    for (int i = 32; i < 36; i++)
+    {
+        A.b[A.n - 1] = A.b[A.n - 1] + A.AV[i];
     }
     cout << endl;
+    cout << "AV" << endl;
+    for (int i = 0; i < A.k; i++)
+    {
+        cout << A.AV[i] << " ";
+    }
+    cout << endl;
+    cout << "ANR" << endl;
+    for (int i = 0; i < A.k; i++)
+    {
+        cout << A.ANR[i] - 1 << " ";
+    }
+    cout << endl;
+    cout << "ANL" << endl;
+    for (int i = 0; i < A.n; i++)
+    {
+        cout << A.ANL[i] << " ";
+    }
+    cout << endl;
+    cout << "b" << endl;
+    for (int i = 0; i < A.n; i++)
+    {
+        cout << A.b[i] << " ";
+    }
+}
+void YAKOBI(List A, ifstream& e)
+{
+    double* A1 = new double[A.n];
+    double* ATR = new double[A.n];
+    double* r = new double[A.n];
+    double* XK = new double[A.n];
+    double* XK1 = new double[A.n]();
+    double eps = 0.001; int sch = 0; int k = 0;
+    double sum = 0; double chd; double diag; int nd;
+    while (sch != 10)
+    {
+        sch = 0;
+        if (k == 0)
+        {
 
-    delete[] AV;
-    delete[] numCols;
-    delete[] numRows;
-    delete[] b;
-    delete[] x;
-    delete[] r;
-
+            for (int r = 0; r < A.n; r++)
+            {
+                XK1[r] = A.b[r];
+                XK[r] = XK1[r];
+                k++;
+            }
+        }
+        for (int i = 0; i < A.n-1; i++)
+        {
+            for (int j = A.ANL[i]; j<A.ANL[i+1]; j++)
+            {
+                sum = sum + A.AV[A.ANR[j]] * XK1[A.ANR[j]]; //A*X(K)
+            }
+            A1[i] = sum;
+            sum = 0;
+        }
+        for (int i = A.ANL[A.n - 1]; i < A.ANL[A.n - 1] + 4; i++)
+        {
+            sum = sum + A.AV[A.ANR[i]] * XK1[A.ANR[i]];
+        }
+        A1[A.n - 1] = sum;
+        sum = 0;
+        for (int i = 0; i < A.n; i++)
+        {
+            r[i] = A1[i] - A.b[i];
+        }
+        for (int i = 0; i < A.n - 1; i++)
+        {
+            for (int j = A.ANL[i]; j < A.ANL[i + 1]; j++)
+            {
+                sum = sum + A.AV[A.ANR[j]] * r[A.ANR[j]];//r*ATR
+            }
+            ATR[i] = sum;
+            sum = 0;
+        }
+        for (int i = A.ANL[A.n - 1]; i < A.ANL[A.n - 1] + 4; i++)
+        {
+            sum = sum + A.AV[A.ANR[i]] * r[A.ANR[i]]; // r*ATR
+        }
+        ATR[A.n - 1] = sum;
+        sum = 0;
+    }
+    for (int i = 0; i < A.n; i++)
+    {
+        //cout << XK[i] << endl;
+    }
+    cout << endl;
+    //cout << k << " iter" << endl;
+}
+int main()
+{
+    List a;
+    ifstream f, f1, f2;
+    f1.open("C:\\Users\\stud\\Desktop\\matr.txt");
+    f.open("C:\\Users\\stud\\Desktop\\matr.txt");
+    f2.open("C:\\Users\\stud\\Desktop\\matr.txt");
+    izfile(f, a);
+    cscf(a, f1);
+    cout << endl;
+    cout << "YAKOBI" << endl;
+    YAKOBI(a, f2);
+    cout << " " << endl;
     return 0;
 }

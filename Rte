@@ -20,11 +20,11 @@ void readCSCMatrix(ifstream& file, ifstream& fg, CSCMatrix& A) {
     A.b = new double[A.n];
     for (int i = 0; i < A.k; i++) {
         file >> A.ANR[i] >> A.AV[i];
-        A.ANR[i]--; // Адаптация к 0-индексации
+        A.ANR[i]--;
     }
     for (int i = 0; i <= A.n; i++) {
         file >> A.ANL[i];
-        A.ANL[i]--; // Адаптация к 0-индексации
+        A.ANL[i]--;
     }
     for (int i = 0; i < A.n; i++) {
         fg >> A.b[i];
@@ -35,10 +35,7 @@ void fastestDescent(CSCMatrix& A) {
     double* x = new double[A.n]();
     double* r = new double[A.n];
     double* Ax = new double[A.n]();
-
-    for (int i = 0; i < A.n; i++) {
-        r[i] = A.b[i];
-    }
+    memcpy(r, A.b, A.n * sizeof(double)); // Инициализация r = b
 
     double alpha, rsold = 0, rsnew = 0, rAr;
     int maxIter = 1000;
@@ -52,24 +49,24 @@ void fastestDescent(CSCMatrix& A) {
     while (iter < maxIter && sqrt(rsold) > tol) {
         iter++;
 
-        for (int i = 0; i < A.n; i++) {
-            Ax[i] = 0;
-        }
+        // Очистка Ax перед новым умножением
+        fill_n(Ax, A.n, 0.0);
+
+        // Вычисляем A*r
         for (int j = 0; j < A.n; j++) {
             for (int i = A.ANL[j]; i < A.ANL[j + 1]; i++) {
-                int row = A.ANR[i];
-                if (row >= 0 && row < A.n) {
-                    Ax[row] += A.AV[i] * r[j];
-                }
+                Ax[A.ANR[i]] += A.AV[i] * r[j];
             }
         }
 
+        // Вычисляем alpha
         rAr = 0;
         for (int i = 0; i < A.n; i++) {
             rAr += r[i] * Ax[i];
         }
         alpha = rsold / rAr;
 
+        // Обновляем x и r
         rsnew = 0;
         for (int i = 0; i < A.n; i++) {
             x[i] += alpha * r[i];
@@ -112,4 +109,4 @@ int main() {
 }
 ```
 
-Этот код учитывает корректную обработку индексов и проверяет корректность доступа к элементам массивов. Если ошибка "индекса row" продолжит возникать, это может указывать на проблему в исходных данных или в способе их представления в файлах.
+Этот код включает необходимые проверки и корректировки для умножения матрицы в формате CSC на вектор, вычисления шага и обновления векторов. Если результаты всё ещё неверные, рекомендуется проверить правильность входных данных и убедиться, что алгоритм соответствует математическим требованиям задачи.

@@ -155,3 +155,119 @@ for (int i = 0; i < n; i++)//вывод матрицы
     }
 }
 cout << endl;*/
+
+
+#include <fstream>
+#include <iostream>
+#include <cmath> // Для sqrt и fabs
+#include <cstring> // Для memset
+
+using namespace std;
+
+int main() {
+    fstream f, g, v;
+    f.open("C:\\Users\\stud\\Desktop\\Test_int.mtx");
+    g.open("C:\\Users\\stud\\Desktop\\AA.txt");
+    v.open("C:\\Users\\stud\\Desktop\\BB.txt");
+
+    int n, m, Nenol;
+    f >> n >> m >> Nenol;
+
+    // Выделяем память под массивы
+    double* AV = new double[Nenol]();
+    int* numCols = new int[Nenol]();
+    int* numRows = new int[Nenol]();
+    double* b = new double[n](); // Вектор b
+    double* x = new double[n](); // Вектор x
+    double* r = new double[n](); // Вектор невязки r
+    double* Ax = new double[n](); // Произведение Ax
+
+    // Инициализация векторов
+    memset(x, 0, n * sizeof(double)); // Начальное приближение x = 0
+
+    for (int i = 0; i < Nenol; i++) {
+        f >> numRows[i] >> numCols[i] >> AV[i];
+    }
+
+    // Заполняем вектор b
+    for (int i = 0; i < n; i++) {
+        b[i] = 1.0; // Пример, можно изменить на чтение из файла или другие значения
+    }
+
+    double tol = 1e-6; // Точность
+    int maxIter = 1000; // Максимальное количество итераций
+    int iter = 0;
+    double alpha, rsold, rsnew;
+
+    // Начальное значение невязки r = b - Ax = b, так как x = 0
+    memcpy(r, b, n * sizeof(double));
+    rsold = 0;
+    for (int i = 0; i < n; i++) {
+        rsold += r[i] * r[i];
+    }
+
+    while (iter < maxIter) {
+        iter++;
+
+        // Вычисляем Ax = A * x
+        memset(Ax, 0, n * sizeof(double));
+        for (int i = 0; i < Nenol; i++) {
+            Ax[numRows[i]-1] += AV[i] * x[numCols[i]-1];
+        }
+
+        // Обновляем невязку r = b - Ax
+        for (int i = 0; i < n; i++) {
+            r[i] = b[i] - Ax[i];
+        }
+
+        // Вычисляем новое rsnew
+        rsnew = 0;
+        for (int i = 0; i < n; i++) {
+            rsnew += r[i] * r[i];
+        }
+
+        // Проверяем условие остановки
+        if (sqrt(rsnew) < tol) {
+            break;
+        }
+
+        // Вычисляем alpha
+        double rAr = 0;
+        for (int i = 0; i < n; i++) {
+            double Ar = 0;
+            for  (int j = 0; j < Nenol; j++) {
+                if (numRows[j]-1 == i) {
+                    Ar += AV[j] * r[numCols[j]-1];
+                }
+            }
+            rAr += Ar * r[i];
+        }
+        alpha = rsnew / rAr;
+
+        // Обновляем x = x + alpha * r
+        for (int i = 0; i < n; i++) {
+            x[i] += alpha * r[i];
+        }
+
+        rsold = rsnew;
+    }
+
+    // Вывод результатов
+    cout << "Результат x:" << endl;
+    for (int i = 0; i < n; i++) {
+        cout << x[i] << " ";
+    }
+    cout << endl;
+
+    delete[] AV;
+    delete[] numCols;
+    delete[] numRows;
+    delete[] b;
+    delete[] x;
+    delete[] r;
+    delete[] Ax;
+
+    return 0;
+}
+```
+Этот код реализует базовую версию метода наискорейшего спуска, пригодную для решения разреженных систем линейных уравнений с матрицей в формате CSR. Вы можете адаптировать вектор \(b\) и начальное приближение \(x\) под ваши конкретные задачи, а также изменить пути файлов ввода и вывода.

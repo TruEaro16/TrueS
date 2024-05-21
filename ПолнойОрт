@@ -10,6 +10,15 @@ int main() {
     f.open("C:\\Users\\stud\\Desktop\\Test_int.mtx");
     br.open("C:\\Users\\stud\\Desktop\\BB.txt");
 
+    if (!f.is_open()) {
+        cout << "Matrix file not open" << endl;
+        return EXIT_FAILURE;
+    }
+    if (!br.is_open()) {
+        cout << "Vector file not open" << endl;
+        return EXIT_FAILURE;
+    }
+
     int n, m, Nenol;
     f >> n >> m >> Nenol;
 
@@ -26,6 +35,14 @@ int main() {
     for (int i = 0; i < n; i++) {
         if (!(br >> b[i])) {
             cout << "b не считался." << endl;
+            delete[] AV;
+            delete[] numCols;
+            delete[] numRows;
+            delete[] b;
+            delete[] Q;
+            delete[] R;
+            delete[] x;
+            return EXIT_FAILURE;
         }
     }
 
@@ -66,61 +83,3 @@ int main() {
         norm = sqrt(norm);
 
         // Если норма равна нулю, матрица сингулярна
-        if (norm == 0) {
-            cout << "Matrix is singular and cannot be orthogonalized." << endl;
-            delete[] q;
-            delete[] AV;
-            delete[] numCols;
-            delete[] numRows;
-            delete[] b;
-            delete[] Q;
-            delete[] R;
-            delete[] x;
-            return EXIT_FAILURE;
-        }
-        R[k * n + k] = norm;
-        for (int i = 0; i < n; ++i) {
-            Q[k * n + i] = q[i] / norm;
-        }
-
-        delete[] q;
-    }
-
-    // Решение уравнения R * x = Q^T * b
-    double* Qtb = new double[n]();
-    for (int i = 0; i < n; ++i) {
-        for (int j = 0; j < n; ++j) {
-            Qtb[i] += Q[j * n + i] * b[j];
-        }
-    }
-
-    for (int i = n - 1; i >= 0; --i) {
-        x[i] = Qtb[i];
-        for (int j = i + 1; j < n; ++j) {
-            x[i] -= R[i * n + j] * x[j];
-        }
-        x[i] /= R[i * n + i];
-    }
-
-    // Вывод решения
-    cout << "Результат x:" << endl;
-    for (int i = 0; i < n; i++) {
-        cout << x[i] << " ";
-    }
-    cout << endl;
-
-    // Освобождение памяти
-    delete[] AV;
-    delete[] numCols;
-    delete[] numRows;
-    delete[] b;
-    delete[] Q;
-    delete[] R;
-    delete[] Qtb;
-    delete[] x;
-
-    f.close();
-    br.close();
-
-    return 0;
-}

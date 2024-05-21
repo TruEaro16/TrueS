@@ -2,7 +2,6 @@
 #include <fstream>
 #include <cmath>
 
-
 using namespace std;
 
 int main() {
@@ -10,7 +9,8 @@ int main() {
     const char* matrixFile = "C:\\Users\\stud\\Desktop\\Test_int.mtx";
     fstream file(matrixFile);
     if (!file.is_open()) {
-        cout << "Matrix file not open "<< endl;
+        cout << "Matrix file not open " << endl;
+        return EXIT_FAILURE;
     }
 
     int n, nnz;
@@ -35,11 +35,14 @@ int main() {
     file.close();
 
     // Чтение вектора из файла
-    const char* vectorFile = "C:\\Users\\stud\\Desktop\\Test_int.mtx";
+    const char* vectorFile = "C:\\Users\\stud\\Desktop\\BB.mtx";
     fstream vecFile(vectorFile);
-    if (!vecFile.is_open()) 
-    {
-        cout << "vector file not open "<<endl;
+    if (!vecFile.is_open()) {
+        cout << "Vector file not open " << endl;
+        delete[] rowPtr;
+        delete[] colIdx;
+        delete[] values;
+        return EXIT_FAILURE;
     }
 
     double* b = new double[n];
@@ -49,14 +52,18 @@ int main() {
 
     vecFile.close();
 
-    // Ортогонализация
+    // Ортогонализация методом Грама-Шмидта
     double* Q = new double[n * n];
+    double* R = new double[n * n];
+
+    for (int i = 0; i < n * n; ++i) {
+        Q[i] = 0.0;
+        R[i] = 0.0;
+    }
 
     for (int k = 0; k < n; ++k) {
-        double* q = new double[n];
-        for (int i = 0; i < n; ++i) {
-            q[i] = 0.0;
-        }
+        double* q = new double[n]();
+
         for (int i = rowPtr[k]; i < rowPtr[k + 1]; ++i) {
             q[colIdx[i]] = values[i];
         }
@@ -66,6 +73,7 @@ int main() {
             for (int i = 0; i < n; ++i) {
                 r += Q[j * n + i] * q[i];
             }
+            R[j * n + k] = r;
             for (int i = 0; i < n; ++i) {
                 q[i] -= r * Q[j * n + i];
             }
@@ -76,12 +84,55 @@ int main() {
             norm += q[i] * q[i];
         }
         norm = sqrt(norm);
+        R[k * n + k] = norm;
         for (int i = 0; i < n; ++i) {
             Q[k * n + i] = q[i] / norm;
         }
 
-      delete[] q;
+        delete[] q;
     }
+
+    // Вывод ортогонализованной матрицы Q и верхней треугольной матрицы R
+    cout << "Orthogonalized matrix Q:" << endl;
+    for (int i = 0; i < n; ++i) {
+        for (int j = 0; j < n; ++j) {
+            cout << Q[j * n + i] << " ";
+        }
+        cout << endl;
+    }
+
+    cout << "Upper triangular matrix R:" << endl;
+    for (int i = 0; i < n; ++i) {
+        for (int j = 0; j < n; ++j) {
+            cout << R[i * n + j] << " ";
+        }
+        cout << endl;
+    }
+
+    // Решение уравнения R * x = Q^T * b
+    double* Qtb = new double[n];
+    for (int i = 0; i < n; ++i) {
+        Qtb[i] = 0.0;
+        for (int j = 0; j < n; ++j) {
+            Qtb[i] += Q[j * n + i] * b[j];
+        }
+    }
+
+    double* x = new double[n];
+    for (int i = n - 1; i >= 0; --i) {
+        x[i] = Qtb[i];
+        for (int j = i + 1; j < n; ++j) {
+            x[i] -= R[i * n + j] * x[j];
+        }
+        x[i] /= R[i * n + i];
+    }
+
+    // Вывод решения
+    cout << "Solution vector x:" << endl;
+    for (int i = 0; i < n; ++i) {
+        cout << x[i] << " ";
+    }
+    cout << endl;
 
     // Освобождение памяти
     delete[] rowPtr;
@@ -89,6 +140,9 @@ int main() {
     delete[] values;
     delete[] b;
     delete[] Q;
+    delete[] R;
+    delete[] Qtb;
+    delete[] x;
 
     return 0;
 }

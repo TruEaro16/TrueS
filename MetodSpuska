@@ -2,114 +2,127 @@
 #include <fstream>
 #include <cmath>
 
-// Функция для умножения матрицы в формате CSR на вектор
-double* multiply(int n, double* values, int* col_indices, int* row_ptr, double* vec) {
-    double* result = new double[n];
-    for (int i = 0; i < n; i++) {
-        result[i] = 0.0;
-        for (int j = row_ptr[i]; j < row_ptr[i + 1]; j++) {
-            result[i] += values[j] * vec[col_indices[j]];
+// Функция для чтения CSR матрицы из файла
+void readCSRMatrix(const char* filename, int& n, int& nnz, int*& rowPtr, int*& colIdx, double*& values) {
+    std::ifstream file(filename);
+    if (!file.is_open()) {
+        std::cerr << "Error opening file: " << filename << std::endl;
+        exit(EXIT_FAILURE);
+    }
+
+    file >> n >> nnz;
+
+    rowPtr = new int[n + 1];
+    colIdx = new int[nnz];
+    values = new double[nnz];
+
+    for (int i = 0; i <= n; ++i) {
+        file >> rowPtr[i];
+    }
+
+    for (int i = 0; i < nnz; ++i) {
+        file >> colIdx[i];
+    }
+
+    for (int i = 0; i < nnz; ++i) {
+        file >> values[i];
+    }
+
+    file.close();
+}
+
+// Функция для чтения вектора из файла
+void readVector(const char* filename, int n, double*& vec) {
+    std::ifstream file(filename);
+    if (!file.is_open()) {
+        std::cerr << "Error opening file: " << filename << std::endl;
+        exit(EXIT_FAILURE);
+    }
+
+    vec = new double[n];
+    for (int i = 0; i < n; ++i) {
+        file >> vec[i];
+    }
+
+    file.close();
+}
+
+// Функция для копирования столбца из CSR матрицы в вектор
+void copyColumnFromCSR(int colIndex, int n, const int* rowPtr, const int* colIdx, const double* values, double* colVector) {
+    for (int i = 0; i < n; ++i) {
+        colVector[i] = 0.0;
+    }
+    for (int i = rowPtr[colIndex]; i < rowPtr[colIndex + 1]; ++i) {
+        colVector[colIdx[i]] = values[i];
+    }
+}
+
+// Функция для вычисления нормы вектора
+double vectorNorm(int n, const double* vec) {
+    double sum = 0.0;
+    for (int i = 0; i < n; ++i) {
+        sum += vec[i] * vec[i];
+    }
+    return std::sqrt(sum);
+}
+
+// Функция для вычисления скалярного произведения двух векторов
+double dotProduct(int n, const double* vec1, const double* vec2) {
+    double sum = 0.0;
+    for (int i = 0; i < n; ++i) {
+        sum += vec1[i] * vec2[i];
+    }
+    return sum;
+}
+
+// Функция для ортогонализации матрицы методом полной ортогонализации Грама-Шмидта
+void modifiedGramSchmidt(int n, int nnz, const int* rowPtr, const int* colIdx, double* values, double*& Q) {
+    Q = new double[n * n];
+
+    for (int k = 0; k < n; ++k) {
+        double* q = new double[n];
+        copyColumnFromCSR(k, n, rowPtr, colIdx, values, q);
+
+        for (int j = 0; j < k; ++j) {
+            double r = dotProduct(n, &Q[j * n], q);
+            for (int i = 0; i < n; ++i) {
+                q[i] -= r * Q[i * n + j];
+            }
         }
-    }
-    return result;
-}
 
-// Функция для вычитания двух векторов
-double* subtract(int n, double* a, double* b) {
-    double* result = new double[n];
-    for (int i = 0; i < n; i++) {
-        result[i] = a[i] - b[i];
-    }
-    return result;
-}
-
-// Функция для скалярного произведения двух векторов
-double dotProduct(int n, double* a, double* b) {
-    double result = 0.0;
-    for (int i = 0; i < n; i++) {
-        result += a[i] * b[i];
-    }
-    return result;
-}
-
-// Функция метода наискорейшего спуска
-double* steepestDescent(int n, double* values, int* col_indices, int* row_ptr, double* b, int& iterations) {
-    double* x = new double[n]();
-    double* r = subtract(n, b, multiply(n, values, col_indices, row_ptr, x));
-    double* p;
-    double alpha, rsold, rsnew;
-
-    iterations = 0;
-    while (true) {
-        p = r;
-        double* Ap = multiply(n, values, col_indices, row_ptr, p);
-        rsold = dotProduct(n, r, r);
-        alpha = rsold / dotProduct(n, p, Ap);
-        
-        for (int i = 0; i < n; i++) {
-            x[i] += alpha * p[i];
+        double norm = vectorNorm(n, q);
+        for (int i = 0; i < n; ++i) {
+            Q[i * n + k] = q[i] / norm;
         }
-        double* r_new = subtract(n, r, multiply(n, values, col_indices, row_ptr, p));
-        rsnew = dotProduct(n, r_new, r_new);
-        if (sqrt(rsnew) < 1e-10) { // условие сходимости
-            delete[] r_new;
-            break;
-        }
-        delete[] r;
-        r = r_new;
-        delete[] Ap;
-        iterations++;
+
+        delete[] q;
     }
-    delete[] r;
-    return x;
 }
 
-// Главная функция
 int main() {
-    std::ifstream file_matrix("matrix.txt"), file_vector("vector.txt");
-    int n, num_values;
+    int n, nnz;
+    int* rowPtr;
+    int* colIdx;
+    double* values;
 
-    if (!file_matrix.is_open() || !file_vector.is_open()) {
-        std::cerr << "Не удалось открыть файлы" << std::endl;
-        return -1;
-    }
+    // Считываем матрицу из файла
+    readCSRMatrix("test_int", n, nnz, rowPtr, colIdx, values);
 
-    file_matrix >> n >> num_values;
-    double* values = new double[num_values];
-    int* col_indices = new int[num_values];
-    int* row_ptr = new int[n + 1];
-    double* b = new double[n];
+    double* b;
+    // Считываем вектор из файла
+    readVector("BB", n, b);
 
-    for (int i = 0; i <= n; i++) {
-        file_matrix >> row_ptr[i];
-    }
-    for (int i = 0; i < num_values; i++) {
-        file_matrix >> col_indices[i];
-    }
-    for (int i = 0; i < num_values; i++) {
-        file_matrix >> values[i];
-    }
-    for (int i = 0; i < n; i++) {
-        file_vector >> b[i];
-    }
+    double* Q;
 
-    int iterations;
-    double* solution = steepestDescent(n, values, col_indices, row_ptr, b, iterations);
-
-    std::cout << "Решение:" << std::endl;
-    for (int i = 0; i < n; i++) {
-        std::cout << solution[i] << " ";
-    }
-    std::cout << "\nКоличество итераций: " << iterations << std::endl;
+    // Ортогонализация матрицы
+    modifiedGramSchmidt(n, nnz, rowPtr, colIdx, values, Q);
 
     // Освобождение памяти
+    delete[] rowPtr;
+    delete[] colIdx;
     delete[] values;
-    delete[] col_indices;
-    delete[] row_ptr;
     delete[] b;
-    delete[] solution;
+    delete[] Q;
 
-    file_matrix.close();
-    file_vector.close();
     return 0;
 }

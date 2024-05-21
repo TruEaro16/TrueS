@@ -10,10 +10,11 @@ int main() {
     file.open("C:\\Users\\stud\\Desktop\\Test_int.mtx");
     if (!file.is_open()) {
         cout << "Matrix file not open " << endl;
+        return EXIT_FAILURE;
     }
 
-    int n, nnz,Nenol;
-    file >> n >> nnz>>Nenol;
+    int n, nnz;
+    file >> n >> nnz;
 
     int* rowPtr = new int[n + 1];
     int* colIdx = new int[nnz];
@@ -41,6 +42,7 @@ int main() {
         delete[] rowPtr;
         delete[] colIdx;
         delete[] values;
+        return EXIT_FAILURE;
     }
 
     double* b = new double[n];
@@ -50,7 +52,7 @@ int main() {
 
     vecFile.close();
 
-    // Ортогонализаци
+    // Ортогонализация методом Грама-Шмидта
     double* Q = new double[n * n];
     double* R = new double[n * n];
 
@@ -62,7 +64,7 @@ int main() {
     for (int k = 0; k < n; ++k) {
         double* q = new double[n]();
 
-        for (int i = 0; i < rowPtr[k + 1]; ++i) {
+        for (int i = rowPtr[k]; i < rowPtr[k + 1]; ++i) {
             q[colIdx[i]] = values[i];
         }
 
@@ -89,23 +91,6 @@ int main() {
 
         delete[] q;
     }
-
-    // Вывод ортогонализованной матрицы Q и верхней треугольной матрицы R
-  /*  cout << "Orthogonalized matrix Q:" << endl;
-    for (int i = 0; i < n; ++i) {
-        for (int j = 0; j < n; ++j) {
-            cout << Q[j * n + i] << " ";
-        }
-        cout << endl;
-    }
-
-    cout << "Upper triangular matrix R:" << endl;
-    for (int i = 0; i < n; ++i) {
-        for (int j = 0; j < n; ++j) {
-            cout << R[i * n + j] << " ";
-        }
-        cout << endl;
-    }*/
 
     // Решение уравнения R * x = Q^T * b
     double* Qtb = new double[n];

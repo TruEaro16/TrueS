@@ -1,7 +1,6 @@
 #include <iostream>
 #include <fstream>
 #include <cmath>
-#include <vector>
 
 using namespace std;
 
@@ -65,11 +64,12 @@ int main() {
     for (int k = 0; k < n; ++k) {
         double* q = new double[n]();
 
-        // Правильный цикл для копирования значений из CSR матрицы в вектор q
+        // Копируем значения из CSR матрицы в вектор q
         for (int i = rowPtr[k]; i < rowPtr[k + 1]; ++i) {
             q[colIdx[i]] = values[i];
         }
 
+        // Ортогонализация
         for (int j = 0; j < k; ++j) {
             double r = 0.0;
             for (int i = 0; i < n; ++i) {
@@ -81,11 +81,14 @@ int main() {
             }
         }
 
+        // Вычисление нормы и проверка на сингулярность
         double norm = 0.0;
         for (int i = 0; i < n; ++i) {
             norm += q[i] * q[i];
         }
         norm = sqrt(norm);
+
+        // Если норма равна нулю, матрица сингулярна
         if (norm == 0) {
             cout << "Matrix is singular and cannot be orthogonalized." << endl;
             delete[] q;

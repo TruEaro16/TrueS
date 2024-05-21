@@ -6,15 +6,14 @@ using namespace std;
 
 int main() {
     // Чтение CSR матрицы из файла
-    const char* matrixFile = "C:\\Users\\stud\\Desktop\\Test_int.mtx";
-    fstream file(matrixFile);
+    fstream file;
+    file.open("C:\\Users\\stud\\Desktop\\Test_int.mtx");
     if (!file.is_open()) {
         cout << "Matrix file not open " << endl;
-        return EXIT_FAILURE;
     }
 
-    int n, nnz;
-    file >> n >> nnz;
+    int n, nnz,Nenol;
+    file >> n >> nnz>>Nenol;
 
     int* rowPtr = new int[n + 1];
     int* colIdx = new int[nnz];
@@ -35,14 +34,13 @@ int main() {
     file.close();
 
     // Чтение вектора из файла
-    const char* vectorFile = "C:\\Users\\stud\\Desktop\\BB.mtx";
-    fstream vecFile(vectorFile);
+    fstream vecFile;
+    vecFile.open("C:\\Users\\stud\\Desktop\\BB.txt");
     if (!vecFile.is_open()) {
         cout << "Vector file not open " << endl;
         delete[] rowPtr;
         delete[] colIdx;
         delete[] values;
-        return EXIT_FAILURE;
     }
 
     double* b = new double[n];
@@ -52,7 +50,7 @@ int main() {
 
     vecFile.close();
 
-    // Ортогонализация методом Грама-Шмидта
+    // Ортогонализаци
     double* Q = new double[n * n];
     double* R = new double[n * n];
 
@@ -64,7 +62,7 @@ int main() {
     for (int k = 0; k < n; ++k) {
         double* q = new double[n]();
 
-        for (int i = rowPtr[k]; i < rowPtr[k + 1]; ++i) {
+        for (int i = 0; i < rowPtr[k + 1]; ++i) {
             q[colIdx[i]] = values[i];
         }
 
@@ -93,7 +91,7 @@ int main() {
     }
 
     // Вывод ортогонализованной матрицы Q и верхней треугольной матрицы R
-    cout << "Orthogonalized matrix Q:" << endl;
+  /*  cout << "Orthogonalized matrix Q:" << endl;
     for (int i = 0; i < n; ++i) {
         for (int j = 0; j < n; ++j) {
             cout << Q[j * n + i] << " ";
@@ -107,7 +105,7 @@ int main() {
             cout << R[i * n + j] << " ";
         }
         cout << endl;
-    }
+    }*/
 
     // Решение уравнения R * x = Q^T * b
     double* Qtb = new double[n];

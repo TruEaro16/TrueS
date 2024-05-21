@@ -13,8 +13,8 @@ int main() {
         return EXIT_FAILURE;
     }
 
-    int n, nnz, Nenol;
-    file >> n >> nnz >> Nenol;
+    int n, m, nnz;
+    file >> n >> m >> nnz;
 
     int* rowPtr = new int[n + 1];
     int* colIdx = new int[nnz];
@@ -64,7 +64,6 @@ int main() {
     for (int k = 0; k < n; ++k) {
         double* q = new double[n]();
 
-        // Правильный цикл для копирования значений из CSR матрицы в вектор q
         for (int i = rowPtr[k]; i < rowPtr[k + 1]; ++i) {
             q[colIdx[i]] = values[i];
         }

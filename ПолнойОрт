@@ -2,13 +2,15 @@
 #include <fstream>
 #include <cmath>
 
+
+using namespace std;
+
 int main() {
     // Чтение CSR матрицы из файла
-    const char* matrixFile = "test_int";
-    std::ifstream file(matrixFile);
+    const char* matrixFile = "C:\\Users\\stud\\Desktop\\Test_int.mtx";
+    fstream file(matrixFile);
     if (!file.is_open()) {
-        std::cerr << "Error opening file: " << matrixFile << std::endl;
-        return EXIT_FAILURE;
+        cout << "Matrix file not open "<< endl;
     }
 
     int n, nnz;
@@ -33,14 +35,11 @@ int main() {
     file.close();
 
     // Чтение вектора из файла
-    const char* vectorFile = "BB";
-    std::ifstream vecFile(vectorFile);
-    if (!vecFile.is_open()) {
-        std::cerr << "Error opening file: " << vectorFile << std::endl;
-        delete[] rowPtr;
-        delete[] colIdx;
-        delete[] values;
-        return EXIT_FAILURE;
+    const char* vectorFile = "C:\\Users\\stud\\Desktop\\Test_int.mtx";
+    fstream vecFile(vectorFile);
+    if (!vecFile.is_open()) 
+    {
+        cout << "vector file not open "<<endl;
     }
 
     double* b = new double[n];
@@ -50,7 +49,7 @@ int main() {
 
     vecFile.close();
 
-    // Ортогонализация матрицы методом полной ортогонализации Грама-Шмидта
+    // Ортогонализация
     double* Q = new double[n * n];
 
     for (int k = 0; k < n; ++k) {
@@ -76,12 +75,12 @@ int main() {
         for (int i = 0; i < n; ++i) {
             norm += q[i] * q[i];
         }
-        norm = std::sqrt(norm);
+        norm = sqrt(norm);
         for (int i = 0; i < n; ++i) {
             Q[k * n + i] = q[i] / norm;
         }
 
-        delete[] q;
+      delete[] q;
     }
 
     // Освобождение памяти

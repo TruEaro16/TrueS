@@ -2,19 +2,21 @@
 #include <fstream>
 #include <cmath>
 
-// Функция для чтения CSR матрицы из файла
-void readCSRMatrix(const char* filename, int& n, int& nnz, int*& rowPtr, int*& colIdx, double*& values) {
-    std::ifstream file(filename);
+int main() {
+    // Чтение CSR матрицы из файла
+    const char* matrixFile = "test_int";
+    std::ifstream file(matrixFile);
     if (!file.is_open()) {
-        std::cerr << "Error opening file: " << filename << std::endl;
-        exit(EXIT_FAILURE);
+        std::cerr << "Error opening file: " << matrixFile << std::endl;
+        return EXIT_FAILURE;
     }
 
+    int n, nnz;
     file >> n >> nnz;
 
-    rowPtr = new int[n + 1];
-    colIdx = new int[nnz];
-    values = new double[nnz];
+    int* rowPtr = new int[n + 1];
+    int* colIdx = new int[nnz];
+    double* values = new double[nnz];
 
     for (int i = 0; i <= n; ++i) {
         file >> rowPtr[i];
@@ -29,30 +31,29 @@ void readCSRMatrix(const char* filename, int& n, int& nnz, int*& rowPtr, int*& c
     }
 
     file.close();
-}
 
-// Функция для чтения вектора из файла
-void readVector(const char* filename, int n, double*& vec) {
-    std::ifstream file(filename);
-    if (!file.is_open()) {
-        std::cerr << "Error opening file: " << filename << std::endl;
-        exit(EXIT_FAILURE);
+    // Чтение вектора из файла
+    const char* vectorFile = "BB";
+    std::ifstream vecFile(vectorFile);
+    if (!vecFile.is_open()) {
+        std::cerr << "Error opening file: " << vectorFile << std::endl;
+        delete[] rowPtr;
+        delete[] colIdx;
+        delete[] values;
+        return EXIT_FAILURE;
     }
 
-    vec = new double[n];
+    double* b = new double[n];
     for (int i = 0; i < n; ++i) {
-        file >> vec[i];
+        vecFile >> b[i];
     }
 
-    file.close();
-}
+    vecFile.close();
 
-// Функция для ортогонализации матрицы методом полной ортогонализации Грама-Шмидта
-void modifiedGramSchmidt(int n, int nnz, const int* rowPtr, const int* colIdx, double* values, double*& Q) {
-    Q = new double[n * n];
+    // Ортогонализация матрицы методом полной ортогонализации Грама-Шмидта
+    double* Q = new double[n * n];
 
     for (int k = 0; k < n; ++k) {
-        // Скопировать k-ый столбец из CSR матрицы в q
         double* q = new double[n];
         for (int i = 0; i < n; ++i) {
             q[i] = 0.0;
@@ -61,48 +62,27 @@ void modifiedGramSchmidt(int n, int nnz, const int* rowPtr, const int* colIdx, d
             q[colIdx[i]] = values[i];
         }
 
-        // Ортогонализация относительно предыдущих столбцов
         for (int j = 0; j < k; ++j) {
             double r = 0.0;
             for (int i = 0; i < n; ++i) {
-                r += Q[i * n + j] * q[i];
+                r += Q[j * n + i] * q[i];
             }
             for (int i = 0; i < n; ++i) {
-                q[i] -= r * Q[i * n + j];
+                q[i] -= r * Q[j * n + i];
             }
         }
 
-        // Нормализация
         double norm = 0.0;
         for (int i = 0; i < n; ++i) {
             norm += q[i] * q[i];
         }
         norm = std::sqrt(norm);
         for (int i = 0; i < n; ++i) {
-            Q[i * n + k] = q[i] / norm;
+            Q[k * n + i] = q[i] / norm;
         }
 
         delete[] q;
     }
-}
-
-int main() {
-    int n, nnz;
-    int* rowPtr;
-    int* colIdx;
-    double* values;
-
-    // Считываем матрицу из файла
-    readCSRMatrix("test_int", n, nnz, rowPtr, colIdx, values);
-
-    double* b;
-    // Считываем вектор из файла
-    readVector("BB", n, b);
-
-    double* Q;
-
-    // Ортогонализация матрицы
-    modifiedGramSchmidt(n, nnz, rowPtr, colIdx, values, Q);
 
     // Освобождение памяти
     delete[] rowPtr;

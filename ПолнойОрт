@@ -1,6 +1,5 @@
 #include <iostream>
 #include <fstream>
-#include <vector>
 #include <cmath>
 
 // Функция для чтения CSR матрицы из файла
@@ -48,20 +47,9 @@ void readVector(const char* filename, int n, double*& vec) {
     file.close();
 }
 
-// Функция для умножения матрицы в формате CSR на вектор
-void csrMatVecMult(int n, const int* rowPtr, const int* colIdx, const double* values, const double* x, double* y) {
-    for (int i = 0; i < n; ++i) {
-        y[i] = 0.0;
-        for (int j = rowPtr[i]; j < rowPtr[i + 1]; ++j) {
-            y[i] += values[j] * x[colIdx[j]];
-        }
-    }
-}
-
 // Функция для ортогонализации матрицы методом полной ортогонализации Грама-Шмидта
-void modifiedGramSchmidt(int n, int nnz, const int* rowPtr, const int* colIdx, double* values, double*& Q, int*& R) {
+void modifiedGramSchmidt(int n, int nnz, const int* rowPtr, const int* colIdx, double* values, double*& Q) {
     Q = new double[n * n];
-    R = new int[n * n];
 
     for (int k = 0; k < n; ++k) {
         // Скопировать k-ый столбец из CSR матрицы в q
@@ -82,7 +70,6 @@ void modifiedGramSchmidt(int n, int nnz, const int* rowPtr, const int* colIdx, d
             for (int i = 0; i < n; ++i) {
                 q[i] -= r * Q[i * n + j];
             }
-            R[j * n + k] = r;
         }
 
         // Нормализация
@@ -94,7 +81,6 @@ void modifiedGramSchmidt(int n, int nnz, const int* rowPtr, const int* colIdx, d
         for (int i = 0; i < n; ++i) {
             Q[i * n + k] = q[i] / norm;
         }
-        R[k * n + k] = norm;
 
         delete[] q;
     }
@@ -114,10 +100,9 @@ int main() {
     readVector("BB", n, b);
 
     double* Q;
-    int* R;
 
     // Ортогонализация матрицы
-    modifiedGramSchmidt(n, nnz, rowPtr, colIdx, values, Q, R);
+    modifiedGramSchmidt(n, nnz, rowPtr, colIdx, values, Q);
 
     // Освобождение памяти
     delete[] rowPtr;
@@ -125,7 +110,6 @@ int main() {
     delete[] values;
     delete[] b;
     delete[] Q;
-    delete[] R;
 
     return 0;
 }

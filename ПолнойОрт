@@ -1,173 +1,120 @@
-#include <iostream>
 #include <fstream>
+#include <iostream>
 #include <cmath>
-#include <vector>
-#include <algorithm>
 
 using namespace std;
 
 int main() {
-    // Чтение COO матрицы из файла
-    fstream file("C:\\Users\\stud\\Desktop\\Test_int.mtx", ios::in);
-    if (!file.is_open()) {
-        cout << "Matrix file not open " << endl;
-        return EXIT_FAILURE;
-    }
+    setlocale(LC_ALL, "Russian");
+    fstream f, br;
+    f.open("C:\\Users\\stud\\Desktop\\Test_int.mtx");
+    br.open("C:\\Users\\stud\\Desktop\\BB.txt");
 
-    int n, m, nnz;
-    file >> n >> m >> nnz;
+    int n, m, Nenol;
+    f >> n >> m >> Nenol;
 
-    int* row = new int[nnz];
-    int* col = new int[nnz];
-    double* data = new double[nnz];
-
-    for (int i = 0; i < nnz; ++i) {
-        file >> row[i] >> col[i] >> data[i];
-        row[i]--; // Преобразуем индексы из 1-based в 0-based
-        col[i]--;
-    }
-
-    file.close();
-
-    // Преобразование COO в CSR
-    int* rowPtr = new int[n + 1]();
-    int* colIdx = new int[nnz];
-    double* values = new double[nnz];
-
-    // Считаем количество элементов в каждой строке
-    for (int i = 0; i < nnz; ++i) {
-        rowPtr[row[i] + 1]++;
-    }
-
-    // Преобразуем rowPtr в указатели на начало строки
-    for (int i = 0; i < n; ++i) {
-        rowPtr[i + 1] += rowPtr[i];
-    }
-
-    // Заполняем colIdx и values
-    for (int i = 0; i < nnz; ++i) {
-        int r = row[i];
-        int dest = rowPtr[r]++;
-        colIdx[dest] = col[i];
-        values[dest] = data[i];
-    }
-
-    // Восстанавливаем rowPtr
-    for (int i = n; i > 0; --i) {
-        rowPtr[i] = rowPtr[i - 1];
-    }
-    rowPtr[0] = 0;
-
-    // Чтение вектора из файла
-    fstream vecFile("C:\\Users\\stud\\Desktop\\BB.txt", ios::in);
-    if (!vecFile.is_open()) {
-        cout << "Vector file not open " << endl;
-        delete[] row;
-        delete[] col;
-        delete[] data;
-        delete[] rowPtr;
-        delete[] colIdx;
-        delete[] values;
-        return EXIT_FAILURE;
-    }
-
-    double* b = new double[n];
-    for (int i = 0; i < n; ++i) {
-        vecFile >> b[i];
-    }
-
-    vecFile.close();
-
-    // Ортогонализация методом Грама-Шмидта
-    double* Q = new double[n * n]();
-    double* R = new double[n * n]();
-
-    for (int k = 0; k < n; ++k) {
-        double* q = new double[n]();
-
-        // Копируем значения из CSR матрицы в вектор q
-        for (int i = rowPtr[k]; i < rowPtr[k + 1]; ++i) {
-            q[colIdx[i]] = values[i];
-        }
-
-        // Ортогонализация
-        for (int j = 0; j < k; ++j) {
-            double r = 0.0;
-            for (int i = 0; i < n; ++i) {
-                r += Q[j * n + i] * q[i];
-            }
-            R[j * n + k] = r;
-            for (int i = 0; i < n; ++i) {
-                q[i] -= r * Q[j * n + i];
-            }
-        }
-
-        // Вычисление нормы и проверка на сингулярность
-        double norm = 0.0;
-        for (int i = 0; i < n; ++i) {
-            norm += q[i] * q[i];
-        }
-        norm = sqrt(norm);
-
-        // Если норма равна нулю, матрица сингулярна
-        if (norm == 0) {
-            cout << "Matrix is singular and cannot be orthogonalized." << endl;
-            delete[] q;
-            delete[] row;
-            delete[] col;
-            delete[] data;
-            delete[] rowPtr;
-            delete[] colIdx;
-            delete[] values;
-            delete[] b;
-            delete[] Q;
-            delete[] R;
-            return EXIT_FAILURE;
-        }
-        R[k * n + k] = norm;
-        for (int i = 0; i < n; ++i) {
-            Q[k * n + i] = q[i] / norm;
-        }
-
-        delete[] q;
-    }
-
-    // Решение уравнения R * x = Q^T * b
-    double* Qtb = new double[n]();
-    for (int i = 0; i < n; ++i) {
-        for (int j = 0; j < n; ++j) {
-            Qtb[i] += Q[j * n + i] * b[j];
-        }
-    }
-
+    // Выделяем память под массивы
+    double* AV = new double[Nenol]();
+    int* numCols = new int[Nenol]();
+    int* numRows = new int[Nenol]();
+    double* b = new double[n](); // Вектор b
     double* x = new double[n]();
-    for (int i = n - 1; i >= 0; --i) {
-        x[i] = Qtb[i];
-        for (int j = i + 1; j < n; ++j) {
-            x[i] -= R[i * n + j] * x[j];
-        }
-        x[i] /= R[i * n + i];
+    double* r = new double[n]();
+    double** A = new double* [n]; // фул матрица A
+    for (int i = 0; i < n; i++)
+    {
+        A[i] = new double[m]();
     }
 
-    // Вывод решения
-    cout << "Solution vector x:" << endl;
-    for (int i = 0; i < n; ++i) {
+    // Чтение вектора b из файла
+    for (int i = 0; i < n; i++)
+    {
+        if (!(br >> b[i]))
+        {
+            cout << "b не считался." << endl;
+        }
+    }
+
+    // Нач прибилжение x = 0
+    for (int i = 0; i < n; i++) {
+        x[i] = 0;
+    }
+
+    for (int i = 0; i < Nenol; i++)
+    {
+        f >> numRows[i] >> numCols[i] >> AV[i];
+        numRows[i]--; // Переводим в нумерацию с 0
+        numCols[i]--;
+        A[numRows[i]][numCols[i]] = AV[i]; //заполнение матрицы
+    }
+    cout << "Матрица A:" << endl;
+    for (int i = 0; i < n; i++) {
+        for (int j = 0; j < m; j++) {
+            cout << A[i][j] << " ";
+        }
+        cout << endl;
+    }
+
+    double tol = 0.001; // Точность
+    int maxIter = 1000;
+    int iter = 0;
+    double alpha, rsold, rsnew, rAr;
+
+    // начальное значение невязки r = b - Ax = b, тк x = 0
+    for (int i = 0; i < n; i++) {
+        r[i] = b[i];
+    }
+    rsold = 0;
+    for (int i = 0; i < n; i++) {
+        rsold += r[i] * r[i];
+    }
+
+    while (iter < maxIter && sqrt(rsold) > tol) {
+        iter++;
+
+        // Вычисляем произведение A*r (Ax)
+        double* Ar = new double[n]();
+        for (int i = 0; i < Nenol; i++) {
+            Ar[numRows[i]] += AV[i] * r[numCols[i]];
+        }
+
+        // Вычисляем alpha = rsold / (r^T * Ar)
+        rAr = 0;
+        for (int i = 0; i < n; i++) {
+            rAr += r[i] * Ar[i];
+        }
+        alpha = rsold / rAr;
+
+        // Обновляем x = x + alpha * r и вычисляем новую невязку
+        rsnew = 0;
+        for (int i = 0; i < n; i++) {
+            x[i] += alpha * r[i];
+            r[i] -= alpha * Ar[i];
+            rsnew += r[i] * r[i];
+        }
+        rsold = rsnew;
+        delete[] Ar;
+    }
+
+    cout << "Результат x после " << iter << " итераций:" << endl;
+    for (int i = 0; i < n; i++) {
         cout << x[i] << " ";
     }
     cout << endl;
 
-    // Освобождение памяти
-    delete[] row;
-    delete[] col;
-    delete[] data;
-    delete[] rowPtr;
-    delete[] colIdx;
-    delete[] values;
+    for (int i = 0; i < n; i++) {
+        delete[] A[i];
+    }
+    delete[] A;
+    delete[] AV;
+    delete[] numCols;
+    delete[] numRows;
     delete[] b;
-    delete[] Q;
-    delete[] R;
-    delete[] Qtb;
     delete[] x;
+    delete[] r;
+
+    f.close();
+    br.close();
 
     return 0;
 }

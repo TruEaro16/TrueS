@@ -1,13 +1,14 @@
 #include <iostream>
 #include <fstream>
 #include <cmath>
+#include <vector>
+#include <algorithm>
 
 using namespace std;
 
 int main() {
-    // Чтение CSR матрицы из файла
-    fstream file;
-    file.open("C:\\Users\\stud\\Desktop\\Test_int.mtx");
+    // Чтение COO матрицы из файла
+    fstream file("C:\\Users\\stud\\Desktop\\Test_int.mtx", ios::in);
     if (!file.is_open()) {
         cout << "Matrix file not open " << endl;
         return EXIT_FAILURE;
@@ -16,27 +17,49 @@ int main() {
     int n, m, nnz;
     file >> n >> m >> nnz;
 
-    int* rowPtr = new int[n + 1];
-    int* colIdx = new int[nnz];
-    double* values = new double[nnz];
-
-    for (int i = 0; i <= n; ++i) {
-        file >> rowPtr[i];
-    }
+    vector<int> row(nnz);
+    vector<int> col(nnz);
+    vector<double> data(nnz);
 
     for (int i = 0; i < nnz; ++i) {
-        file >> colIdx[i];
-    }
-
-    for (int i = 0; i < nnz; ++i) {
-        file >> values[i];
+        file >> row[i] >> col[i] >> data[i];
+        row[i]--; // Преобразуем индексы из 1-based в 0-based
+        col[i]--;
     }
 
     file.close();
 
+    // Преобразование COO в CSR
+    int* rowPtr = new int[n + 1]();
+    int* colIdx = new int[nnz];
+    double* values = new double[nnz];
+
+    // Считаем количество элементов в каждой строке
+    for (int i = 0; i < nnz; ++i) {
+        rowPtr[row[i] + 1]++;
+    }
+
+    // Преобразуем rowPtr в указатели на начало строки
+    for (int i = 0; i < n; ++i) {
+        rowPtr[i + 1] += rowPtr[i];
+    }
+
+    // Заполняем colIdx и values
+    for (int i = 0; i < nnz; ++i) {
+        int r = row[i];
+        int dest = rowPtr[r]++;
+        colIdx[dest] = col[i];
+        values[dest] = data[i];
+    }
+
+    // Восстанавливаем rowPtr
+    for (int i = n; i > 0; --i) {
+        rowPtr[i] = rowPtr[i - 1];
+    }
+    rowPtr[0] = 0;
+
     // Чтение вектора из файла
-    fstream vecFile;
-    vecFile.open("C:\\Users\\stud\\Desktop\\BB.txt");
+    fstream vecFile("C:\\Users\\stud\\Desktop\\BB.txt", ios::in);
     if (!vecFile.is_open()) {
         cout << "Vector file not open " << endl;
         delete[] rowPtr;
@@ -145,41 +168,3 @@ int main() {
 
     return 0;
 }
-
-10 10 36
-1 1 10
-1 3 1
-1 6 2
-1 7 3
-1 10 4
-2 2 11
-2 7 6
-3 1 1
-3 3 12
-3 5 5
-3 9 6
-4 4 13
-4 6 8
-4 8 7
-4 10 -3
-5 3 5
-5 5 14
-5 8 -1
-6 1 2
-6 4 8
-6 6 15
-6 10 9
-7 1 3
-7 2 6
-7 7 16
-7 9 -2
-8 4 7
-8 5 -1
-8 8 17
-9 3 6
-9 7 -2
-9 9 18
-10 1 4
-10 4 -3
-10 6 9
-10 10 19

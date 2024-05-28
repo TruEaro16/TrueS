@@ -1,155 +1,142 @@
 #include <fstream>
 #include <iostream>
 #include <cmath>
+#include <iomanip>
 
 using namespace std;
 
 int main() {
     setlocale(LC_ALL, "Russian");
     fstream f, br;
-    f.open("C:\\Users\\stud\\Desktop\\Test_int.mtx");
-    br.open("C:\\Users\\stud\\Desktop\\BB.txt");
+    f.open("C:\\Users\\sava\\Desktop\\Test_int.mtx");
+    br.open("C:\\Users\\sava\\Desktop\\BB.txt");
 
-    if (!f.is_open()) {
-        cout << "Matrix file not open" << endl;
-        return EXIT_FAILURE;
-    }
-    if (!br.is_open()) {
-        cout << "Vector file not open" << endl;
-        return EXIT_FAILURE;
+    if (!f.is_open() || !br.is_open()) {
+        cout << "Ошибка открытия файла." << endl;
+        return -1;
     }
 
     int n, m, Nenol;
     f >> n >> m >> Nenol;
 
-    // Выделяем память под массивы
     double* AV = new double[Nenol]();
     int* numCols = new int[Nenol]();
     int* numRows = new int[Nenol]();
-    double* b = new double[n](); // Вектор b
-    double* Q = new double[n * n]();
-    double* R = new double[n * n]();
+    double* b = new double[n]();
     double* x = new double[n]();
+    double* A = new double[n * n](); // Матрица A в плотном формате для удобства
 
     // Чтение вектора b из файла
     for (int i = 0; i < n; i++) {
         if (!(br >> b[i])) {
             cout << "b не считался." << endl;
-            delete[] AV;
-            delete[] numCols;
-            delete[] numRows;
-            delete[] b;
-            delete[] Q;
-            delete[] R;
-            delete[] x;
-            return EXIT_FAILURE;
+            return -1;
         }
     }
 
+    // Чтение матрицы в CSR формате и преобразование в плотный формат
     for (int i = 0; i < Nenol; i++) {
         f >> numRows[i] >> numCols[i] >> AV[i];
         numRows[i]--; // Переводим в нумерацию с 0
         numCols[i]--;
+        A[numRows[i] * n + numCols[i]] = AV[i];
     }
 
     f.close();
     br.close();
 
-    // Ортогонализация методом Грама-Шмидта
-    for (int k = 0; k < n; ++k) {
-        double* q = new double[n]();
-
-        // Копируем значения из CSR матрицы в вектор q
-        for (int i = 0; i < Nenol; ++i) {
-            if (numRows[i] == k) {
-                q[numCols[i]] = AV[i];
-            }
-        }
-
-        // Отладочный вывод для вектора q
-        cout << "q[" << k << "]: ";
-        for (int i = 0; i < n; ++i) {
-            cout << q[i] << " ";
-        }
-        cout << endl;
-
-        // Ортогонализация
-        for (int j = 0; j < k; ++j) {
-            double r = 0.0;
-            for (int i = 0; i < n; ++i) {
-                r += Q[j * n + i] * q[i];
-            }
-            R[j * n + k] = r;
-            for (int i = 0; i < n; ++i) {
-                q[i] -= r * Q[j * n + i];
-            }
-        }
-
-        // Вычисление нормы и проверка на сингулярность
-        double norm = 0.0;
-        for (int i = 0; i < n; ++i) {
-            norm += q[i] * q[i];
-        }
-        norm = sqrt(norm);
-
-        // Если норма равна нулю, матрица сингулярна
-        if (norm == 0) {
-            cout << "Matrix is singular and cannot be orthogonalized." << endl;
-            delete[] q;
-            delete[] AV;
-            delete[] numCols;
-            delete[] numRows;
-            delete[] b;
-            delete[] Q;
-            delete[] R;
-            delete[] x;
-            return EXIT_FAILURE;
-        }
-        R[k * n + k] = norm;
-        for (int i = 0; i < n; ++i) {
-            Q[k * n + i] = q[i] / norm;
-        }
-
-        delete[] q;
-    }
-
-    // Вывод матрицы Q и R для отладки
-    cout << "Матрица Q:" << endl;
-    for (int i = 0; i < n; ++i) {
-        for (int j = 0; j < n; ++j) {
-            cout << Q[i * n + j] << " ";
-        }
-        cout << endl;
-    }
-
-    cout << "Матрица R:" << endl;
-    for (int i = 0; i < n; ++i) {
-        for (int j = 0; j < n; ++j) {
-            cout << R[i * n + j] << " ";
-        }
-        cout << endl;
-    }
-
-    // Решение уравнения R * x = Q^T * b
-    double* Qtb = new double[n]();
-    for (int i = 0; i < n; ++i) {
-        for (int j = 0; j < n; ++j) {
-            Qtb[i] += Q[j * n + i] * b[j];
-        }
-    }
-
-    cout << "Q^T * b: ";
-    for (int i = 0; i < n; ++i) {
-        cout << Qtb[i] << " ";
+    // Вывод массивов AV, numRows и numCols
+    cout << "Массив AV: ";
+    for (int i = 0; i < Nenol; i++) {
+        cout << AV[i] << " ";
     }
     cout << endl;
 
-    for (int i = n - 1; i >= 0; --i) {
-        x[i] = Qtb[i];
-        for (int j = i + 1; j < n; ++j) {
-            x[i] -= R[i * n + j] * x[j];
+    cout << "Массив numRows: ";
+    for (int i = 0; i < Nenol; i++) {
+        cout << numRows[i] << " ";
+    }
+    cout << endl;
+
+    cout << "Массив numCols: ";
+    for (int i = 0; i < Nenol; i++) {
+        cout << numCols[i] << " ";
+    }
+    cout << endl;
+
+    // Параметры метода сопряженных градиентов
+    int max_iter = n;
+    double tol = 1e-6;
+
+    double* r = new double[n]();
+    double* p = new double[n]();
+    double* Ap = new double[n]();
+
+    // Инициализация
+    for (int i = 0; i < n; i++) {
+        x[i] = 0.0; // Начальное приближение x = 0
+    }
+
+    // r = b - A * x (начальный остаток)
+    for (int i = 0; i < n; i++) {
+        r[i] = b[i];
+        for (int j = 0; j < n; j++) {
+            r[i] -= A[i * n + j] * x[j];
         }
-        x[i] /= R[i * n + i];
+    }
+
+    // p = r (начальное направление)
+    for (int i = 0; i < n; i++) {
+        p[i] = r[i];
+    }
+
+    double rsold = 0.0;
+    for (int i = 0; i < n; i++) {
+        rsold += r[i] * r[i];
+    }
+
+    for (int iter = 0; iter < max_iter; iter++) {
+        // Ap = A * p
+        for (int i = 0; i < n; i++) {
+            Ap[i] = 0.0;
+            for (int j = 0; j < n; j++) {
+                Ap[i] += A[i * n + j] * p[j];
+            }
+        }
+
+        double alpha = rsold;
+        double temp = 0.0;
+        for (int i = 0; i < n; i++) {
+            temp += p[i] * Ap[i];
+        }
+        alpha /= temp;
+
+        // x = x + alpha * p
+        for (int i = 0; i < n; i++) {
+            x[i] += alpha * p[i];
+        }
+
+        // r = r - alpha * Ap
+        for (int i = 0; i < n; i++) {
+            r[i] -= alpha * Ap[i];
+        }
+
+        double rsnew = 0.0;
+        for (int i = 0; i < n; i++) {
+            rsnew += r[i] * r[i];
+        }
+
+        if (sqrt(rsnew) < tol) {
+            cout << "Сошлось после " << iter + 1 << " итераций." << endl;
+            break;
+        }
+
+        // p = r + (rsnew / rsold) * p
+        for (int i = 0; i < n; i++) {
+            p[i] = r[i] + (rsnew / rsold) * p[i];
+        }
+
+        rsold = rsnew;
     }
 
     // Вывод решения
@@ -164,10 +151,11 @@ int main() {
     delete[] numCols;
     delete[] numRows;
     delete[] b;
-    delete[] Q;
-    delete[] R;
-    delete[] Qtb;
     delete[] x;
+    delete[] A;
+    delete[] r;
+    delete[] p;
+    delete[] Ap;
 
     return 0;
 }

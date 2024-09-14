@@ -1,75 +1,98 @@
 #include <iostream>
-#include <variant>
-#include <string>
+#include <array>
+#include <algorithm> // Для std::find
 
 using namespace std;
 
-// Определяем тип данных для хранения имени, возраста и среднего балла
-using StudentInfo = variant<string, int, double>;
+int main() {
+    // Заранее определенный массив чисел
+    array<int, 5> numbers = {1, 2, 3, 4, 5};
 
-// Функция для вывода информации о студенте в зависимости от переданного типа данных
-void print_student_info(const StudentInfo& info) {
-    if (holds_alternative<string>(info)) {
-        cout << "Имя: " << get<string>(info) << endl;
-    } else if (holds_alternative<int>(info)) {
-        cout << "Возраст: " << get<int>(info) << endl;
-    } else if (holds_alternative<double>(info)) {
-        cout << "Средний балл: " << get<double>(info) << endl;
+    // Запрашиваем у пользователя число
+    cout << "Введите число: ";
+    int input;
+    cin >> input;
+
+    // Используем if с инициализацией для поиска числа в массиве
+    if (auto it = find(numbers.begin(), numbers.end(), input); it != numbers.end()) {
+        cout << "Число найдено!" << endl;
     } else {
-        cout << "Неизвестный тип данных" << endl;
+        cout << "Число не найдено." << endl;
     }
-}
-
-int main() {
-    // Создаем несколько вариантов данных о студенте
-    StudentInfo name = "Иван Иванов";
-    StudentInfo age = 21;
-    StudentInfo avg_score = 4.8;
-
-    // Вызываем функцию для вывода информации
-    print_student_info(name);      // Вывод имени
-    print_student_info(age);       // Вывод возраста
-    print_student_info(avg_score); // Вывод среднего балла
-
-    return 0;
-}
-
-
-#include <iostream>
-#include <tuple>
-#include <string>
-
-using namespace std;
-
-int main() {
-    // Создаем кортеж с информацией о студенте
-    tuple<string, int, double> student = make_tuple("Иван Иванов", 20, 4.5);
-
-    // Используем структурированные привязки для получения значений
-    auto [name, age, avg_score] = student;
-
-    // Выводим значения
-    cout << "Имя: " << name << endl;
-    cout << "Возраст: " << age << endl;
-    cout << "Средний балл: " << avg_score << endl;
 
     return 0;
 }
 
 #include <iostream>
-#include <map>
-#include <string>
 
 using namespace std;
 
 int main() {
-    // Карта для хранения информации о студентах (имя -> возраст)
-    map<string, int> students = {{"Иван Иванов", 20}, {"Анна Петрова", 22}, {"Олег Сидоров", 19}};
+    // Запрашиваем символ действия у пользователя
+    cout << "Введите символ действия (l для влево, r для вправо, u для вверх, d для вниз): ";
+    char action;
+    cin >> action;
 
-    // Перебор элементов карты с использованием структурированных привязок
-    for (const auto& [name, age] : students) {
-        cout << "Имя: " << name << ", Возраст: " << age << endl;
+    // Используем switch с инициализацией
+    switch (char act = action; act) {
+        case 'l':
+            cout << "Движение влево" << endl;
+            break;
+        case 'r':
+            cout << "Движение вправо" << endl;
+            break;
+        case 'u':
+            cout << "Движение вверх" << endl;
+            break;
+        case 'd':
+            cout << "Движение вниз" << endl;
+            break;
+        default:
+            cout << "Неизвестное действие" << endl;
     }
 
     return 0;
 }
+
+#include <iostream>
+
+using namespace std;
+
+int main() {
+    // Инициализация переменной с помощью auto
+    auto number = 3.14;  // Здесь типом переменной будет double
+    cout << "Тип переменной number: double, значение: " << number << endl;
+
+    // Изменим инициализацию для другого типа
+    auto anotherNumber = {1};  // Теперь тип переменной - std::initializer_list<int>
+    cout << "Тип переменной anotherNumber: initializer_list<int>, значение: {1}" << endl;
+
+    return 0;
+}
+
+#include <iostream>
+#include <initializer_list>
+
+using namespace std;
+
+// Функция для вывода суммы элементов initializer_list
+void print_sum(initializer_list<int> values) {
+    int sum = 0;
+    for (int value : values) {
+        sum += value;
+    }
+    cout << "Сумма: " << sum << endl;
+}
+
+int main() {
+    // Вызов функции с разным количеством аргументов
+    print_sum({1, 2, 3});       // Сумма: 6
+    print_sum({5, 10, 15, 20}); // Сумма: 50
+    print_sum({7});             // Сумма: 7
+
+    return 0;
+}
+
+
+
+

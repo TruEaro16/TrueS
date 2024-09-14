@@ -4,25 +4,29 @@
 
 using namespace std;
 
-// Тип данных для хранения информации о студенте (имя, возраст, средний балл)
-using StudentData = variant<string, int, double>;
+// Определяем тип данных для хранения имени, возраста и среднего балла
+using StudentInfo = variant<string, int, double>;
 
-// Функция для вывода информации о студенте в зависимости от переданного типа
-void print_student_info(const StudentData& data) {
-    if (holds_alternative<string>(data)) {
-        cout << "Имя: " << get<string>(data) << endl;
-    } else if (holds_alternative<int>(data)) {
-        cout << "Возраст: " << get<int>(data) << endl;
-    } else if (holds_alternative<double>(data)) {
-        cout << "Средний балл: " << get<double>(data) << endl;
+// Функция для вывода информации о студенте в зависимости от переданного типа данных
+void print_student_info(const StudentInfo& info) {
+    if (holds_alternative<string>(info)) {
+        cout << "Имя: " << get<string>(info) << endl;
+    } else if (holds_alternative<int>(info)) {
+        cout << "Возраст: " << get<int>(info) << endl;
+    } else if (holds_alternative<double>(info)) {
+        cout << "Средний балл: " << get<double>(info) << endl;
+    } else {
+        cout << "Неизвестный тип данных" << endl;
     }
 }
 
 int main() {
-    StudentData name = "Иван Иванов";
-    StudentData age = 20;
-    StudentData avg_score = 4.5;
+    // Создаем несколько вариантов данных о студенте
+    StudentInfo name = "Иван Иванов";
+    StudentInfo age = 21;
+    StudentInfo avg_score = 4.8;
 
+    // Вызываем функцию для вывода информации
     print_student_info(name);      // Вывод имени
     print_student_info(age);       // Вывод возраста
     print_student_info(avg_score); // Вывод среднего балла

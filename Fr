@@ -1,66 +1,76 @@
-#include <iostream>
-#include <vector>
-#include <cmath>
+#include <iostream>     // Для работы с вводом/выводом
+#include <cmath>        // Для математических функций, таких как sin, cos, pow
+#include <iomanip>      // Для форматирования вывода (точность вывода)
 
-using namespace std;
+using namespace std;    // Упрощает использование стандартных функций, таких как cout и endl
 
-// Функция для умножения матрицы на вектор
-vector<double> multiply(const vector<vector<double>>& A, const vector<double>& v) {
-    int n = A.size();
-    vector<double> result(n, 0.0);
-    for (int i = 0; i < n; i++) {
-        for (int j = 0; j < n; j++) {
-            result[i] += A[i][j] * v[j];
+// Функция f(x) = x^2 - 10*sin^2(x) + 2
+// Это исходная функция, корень которой мы будем искать
+double f(double x) {
+    return x * x - 10 * pow(sin(x), 2) + 2;  // Возвращает значение функции в точке x
+}
+
+// Производная f'(x) = 2*x - 20*sin(x)*cos(x)
+// Производная нужна для метода Ньютона, чтобы корректировать приближение корня
+double f_prime(double x) {
+    return 2 * x - 20 * sin(x) * cos(x);  // Возвращает значение производной функции в точке x
+}
+
+// Реализация метода Ньютона для поиска корня
+// a и b - начальный интервал, tolerance - точность, max_iter - максимальное количество итераций
+void newton_method(double a, double b, double tolerance, int max_iter) {
+    // Динамическое выделение памяти для хранения текущего приближения корня
+    double* x = new double;
+
+    // Начальное приближение x0, которое можно взять как середину интервала [a, b]
+    *x = (a + b) / 2.0;
+    
+    int iter = 0;  // Счетчик итераций
+
+    // Основной цикл метода Ньютона, который будет выполняться до достижения точности
+    while (iter < max_iter) {
+        double fx = f(*x);       // Вычисляем значение функции в текущей точке x
+        double fpx = f_prime(*x); // Вычисляем значение производной функции в текущей точке x
+
+        // Проверяем, не слишком ли производная близка к нулю, чтобы избежать деления на ноль
+        if (fabs(fpx) < 1e-10) {
+            cout << "Производная слишком близка к нулю, метод не применим." << endl;
+            break;  // Прерываем выполнение, если производная близка к нулю
         }
-    }
-    return result;
-}
 
-// Функция для вычисления скалярного произведения двух векторов
-double dot(const vector<double>& a, const vector<double>& b) {
-    double sum = 0.0;
-    for (int i = 0; i < a.size(); i++) {
-        sum += a[i] * b[i];
-    }
-    return sum;
-}
+        // Вычисляем новое приближение по формуле метода Ньютона: x1 = x0 - f(x0) / f'(x0)
+        double next_x = *x - fx / fpx;
 
-// Функция для нормализации вектора
-void normalize(vector<double>& v) {
-    double norm = sqrt(dot(v, v));
-    for (double& x : v) x /= norm;
-}
+        // Проверка на достижение требуемой точности (разница между новым и текущим значением)
+        if (fabs(next_x - *x) < tolerance) {
+            *x = next_x;  // Обновляем текущее значение корня
+            cout << "Найденный корень: " << setprecision(10) << *x << endl;  // Выводим найденный корень
+            cout << "Количество итераций: " << iter << endl;  // Выводим количество итераций
+            break;  // Прерываем цикл, если достигли необходимой точности
+        }
 
-// Степенной метод
-pair<double, vector<double>> powerMethod(const vector<vector<double>>& A, vector<double> v, int maxIter, double tol) {
-    vector<double> w;
-    double lambda_old = 0.0, lambda_new;
-
-    for (int iter = 0; iter < maxIter; iter++) {
-        w = multiply(A, v);        // Av
-        lambda_new = dot(w, v);    // lambda = (w, v)
-        normalize(w);              // Нормализация w
-        if (abs(lambda_new - lambda_old) < tol) break;  // Проверка сходимости
-        lambda_old = lambda_new;
-        v = w;                     // Обновление v
+        // Обновляем текущее приближение для следующей итерации
+        *x = next_x;
+        iter++;  // Увеличиваем счетчик итераций
     }
 
-    return {lambda_new, v};        // Возврат собственного значения и вектора
+    // Если максимальное количество итераций было достигнуто, сообщаем об этом
+    if (iter == max_iter) {
+        cout << "Метод не сошелся за " << max_iter << " итераций." << endl;
+    }
+
+    // Освобождаем память, которую выделили для хранения текущего приближения
+    delete x;
 }
 
+// Главная функция программы
 int main() {
-    // Определение матрицы A
-    vector<vector<double>> A = {{4, 1}, {1, 3}};
-    vector<double> v = {1, 1};  // Начальный вектор
+    double a = -1, b = 3;        // Начальный интервал, где будем искать корень
+    double tolerance = 1e-6;     // Точность (насколько близко должны подойти к корню)
+    int max_iter = 1000;         // Максимальное количество итераций, чтобы избежать зацикливания
 
-    auto [eigenvalue, eigenvector] = powerMethod(A, v, 1000, 1e-7);
-    cout << "Собственное значение: " << eigenvalue << endl;
-    cout << "Собственный вектор: [";
-    for (double x : eigenvector) cout << x << " ";
-    cout << "]" << endl;
+    // Вызываем метод Ньютона для нахождения корня на интервале [a, b]
+    newton_method(a, b, tolerance, max_iter);
 
-    return 0;
+    return 0;  // Возвращаем 0, чтобы показать успешное завершение программы
 }
-```
-
-Этот код сначала определяет матрицу \( A \) и начальный вектор \( v \). Затем выполняет степенной метод, используя заданное количество итераций `maxIter` и точность `tol`. В результате выводится найденное собственное значение и соответствующий собственный вектор.

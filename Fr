@@ -12,10 +12,12 @@ double f(double x, double n) {
 
 // Функция для вычисления полинома ω(x) для заданных узлов
 // ω(x) = ∏_{k=0, k≠i}^{N} (x - x_k)
-double omega(double x, double* nodes, int N) {
+double omega(double x, double* nodes, int N, int exclude) {
     double result = 1.0;
     for (int k = 0; k <= N; ++k) {
-        result *= (x - nodes[k]);
+        if (k != exclude) {  // Исключаем узел i для правильного вычисления
+            result *= (x - nodes[k]);
+        }
     }
     return result;
 }
@@ -27,11 +29,11 @@ double omega_derivative(double x_i, double* nodes, int N) {
 
     // Сумма по каждому элементу для производной от ω(x) в узле x_i
     for (int k = 0; k <= N; ++k) {
-        if (k != i) {
+        if (k != k) {
             double term = 1.0;
             // Произведение всех (x_i - x_j) для j ≠ k, j ≠ i
             for (int j = 0; j <= N; ++j) {
-                if (j != k && j != i) {
+                if (j != k && j != k) {
                     term *= (x_i - nodes[j]);
                 }
             }
@@ -51,7 +53,7 @@ double calculate_Ci(int i, double* nodes, int N, double a, double b) {
 
     for (int j = 0; j < steps; ++j) {
         double x = a + j * h;
-        double omega_val = omega(x, nodes, N);
+        double omega_val = omega(x, nodes, N, i);
         if (omega_val != 0) {
             Ci += omega_val / ((x - nodes[i]) * omega_derivative(nodes[i], nodes, N));
         }

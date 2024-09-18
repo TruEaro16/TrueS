@@ -1,77 +1,70 @@
 #include <iostream>
 #include <cmath>
-#include <locale>  // Для использования setlocale
+#include <locale>
 
 using namespace std;
 
-// Подынтегральная функция f(x) = 1 / (x + sin(0.1 * n * x))
-// Эта функция возвращает значение подынтегральной функции в точке x для заданного параметра n
+// Подынтегральная функция f(x)
 double f(double x, double n) {
     return 1.0 / (x + sin(0.1 * n * x));
 }
 
 // Функция для вычисления полинома ω(x) для заданных узлов
-// ω(x) = ∏_{k=0}^{N} (x - x_k), исключая узел i
-double omega(double x, double* nodes, int N, int exclude) {
+// ω(x) = ∏_{k=0, k≠i}^{N} (x - x_k)
+double omega(double x, double* nodes, int N) {
     double result = 1.0;
     for (int k = 0; k <= N; ++k) {
-        if (k != exclude) {  // Исключаем узел i для правильного вычисления
-            result *= (x - nodes[k]);
-        }
+        result *= (x - nodes[k]);
     }
     return result;
 }
 
-// Функция для вычисления весового коэффициента C_i
-// Вычисляем C_i по формуле (24)
-double calculate_Ci(int i, double* nodes, int N, double a, double b) {
-    // Численное интегрирование с весовой функцией
-    double Ci = 0.0;
-    int steps = 10000;  // Увеличим количество шагов для лучшей точности
-    double h = (b - a) / steps;  // Шаг интегрирования
-
-    for (int j = 1; j < steps; ++j) {
-        double x = a + j * h;  // Текущая точка на интервале интегрирования
-        double omega_val = omega(x, nodes, N, i);
-        if (omega_val != 0) {  // Избегаем деления на ноль
-            Ci += omega_val / ((x - nodes[i]) * omega(nodes[i], nodes, N, i));  // Формула (24)
+// Производная ω'(x_i) для узла x_i
+double omega_derivative(double x_i, double* nodes, int N) {
+    double derivative = 0.0;
+    for (int k = 0; k <= N; ++k) {
+        if (k != i) {
+            double term = 1.0;
+            for (int j = 0; j <= N; ++j) {
+                if (j != k && j != i) {
+                    term *= (x_i - nodes[j]);
+                }
+            }
+            derivative += term;
         }
     }
+    return derivative;
+}
 
+// Функция для вычисления весового коэффициента C_i
+double calculate_Ci(int i, double* nodes, int N, double a, double b) {
+    double Ci = 0.0;
+    int steps = 10000;  // Количество шагов для численного интегрирования
+    double h = (b - a) / steps;
+
+    for (int j = 0; j < steps; ++j) {
+        double x = a + j * h;
+        double omega_val = omega(x, nodes, N);
+        if (omega_val != 0) {
+            Ci += omega_val / ((x - nodes[i]) * omega_derivative(nodes[i], nodes, N));
+        }
+    }
     Ci *= h;  // Умножаем на шаг интегрирования для получения приближенного значения
     return Ci;
 }
 
-// Функция для вычисления максимальной производной (N+1)-ой степени для оценки погрешности
-double max_derivative(double a, double b, double n) {
-    // Для упрощения будем использовать производную от f(x)
-    double max_value = 0.0;
-    int steps = 1000;
-    double h = (b - a) / steps;
-
-    for (int j = 1; j < steps; ++j) {
-        double x = a + j * h;
-        double derivative_value = fabs(-cos(0.1 * n * x) / pow(x + sin(0.1 * n * x), 2));  // Производная от f(x)
-        if (derivative_value > max_value) {
-            max_value = derivative_value;
-        }
-    }
-
-    return max_value;
-}
-
 int main() {
-    setlocale(LC_ALL, "Russian");  // Настройка локали для корректного вывода на русском языке
+    setlocale(LC_ALL, "Russian");
 
     double n = 5.0;  // Параметр n для подынтегральной функции
-    double a = 0.2 * n;  // Нижний предел интегрирования (0.2 * n)
-    double b = 2.0 * n;  // Верхний предел интегрирования (2 * n)
+    double a = 0.2 * n;  // Нижний предел интегрирования
+    double b = 2.0 * n;  // Верхний предел интегрирования
     int N = 2;  // Количество узлов интерполяции
 
     // Массив для хранения узлов интерполяции
     double* nodes = new double[N + 1];
-    
-    // Определим равномерные узлы на отрезке [a, b]
+
+    // Определяем равномерные узлы на отрезке [a, b]
     for (int i = 0; i <= N; ++i) {
         nodes[i] = a + i * (b - a) / N;
     }
@@ -81,19 +74,12 @@ int main() {
 
     // Шаг 1: Вычисляем значение интеграла с использованием формул интерполяционного типа
     for (int i = 0; i <= N; ++i) {
-        // Шаг 2: Вычисляем весовой коэффициент C_i
-        double Ci = calculate_Ci(i, nodes, N, a, b);
-        // Шаг 3: Добавляем вклад каждого узла в интеграл (C_i * f(x_i))
-        integral += Ci * f(nodes[i], n);
+        double Ci = calculate_Ci(i, nodes, N, a, b);  // Вычисляем весовой коэффициент C_i
+        integral += Ci * f(nodes[i], n);  // Добавляем вклад каждого узла в интеграл
     }
-
-    // Шаг 4: Оценка погрешности по последней формуле
-    double max_N1_derivative = max_derivative(a, b, n);  // Максимальная производная (N+1)-го порядка
-    double error_estimate = (b - a) * max_N1_derivative / (N + 1);
 
     // Выводим результат
     cout << "Значение интеграла I1 с использованием формул интерполяционного типа = " << integral << endl;
-    cout << "Оценка погрешности: " << error_estimate << endl;
 
     // Освобождаем динамически выделенную память
     delete[] nodes;

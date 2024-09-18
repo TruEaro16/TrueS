@@ -27,12 +27,15 @@ double omega(double x, double* nodes, int N, int exclude) {
 double calculate_Ci(int i, double* nodes, int N, double a, double b) {
     // Численное интегрирование с весовой функцией
     double Ci = 0.0;
-    int steps = 1000;  // Количество шагов для численного интегрирования
+    int steps = 10000;  // Увеличим количество шагов для лучшей точности
     double h = (b - a) / steps;  // Шаг интегрирования
 
-    for (int j = 0; j < steps; ++j) {
+    for (int j = 1; j < steps; ++j) {
         double x = a + j * h;  // Текущая точка на интервале интегрирования
-        Ci += omega(x, nodes, N, i) / ((x - nodes[i]) * omega(nodes[i], nodes, N, i));  // Формула (24)
+        double omega_val = omega(x, nodes, N, i);
+        if (omega_val != 0) {  // Избегаем деления на ноль
+            Ci += omega_val / ((x - nodes[i]) * omega(nodes[i], nodes, N, i));  // Формула (24)
+        }
     }
 
     Ci *= h;  // Умножаем на шаг интегрирования для получения приближенного значения
@@ -40,21 +43,20 @@ double calculate_Ci(int i, double* nodes, int N, double a, double b) {
 }
 
 // Функция для вычисления максимальной производной (N+1)-ой степени для оценки погрешности
-double max_derivative(double a, double b) {
-    // Для упрощения будем использовать абсолютное значение производной от sin(x)
-    // В реальном случае производную можно уточнить
+double max_derivative(double a, double b, double n) {
+    // Для упрощения будем использовать производную от f(x)
     double max_value = 0.0;
     int steps = 1000;
     double h = (b - a) / steps;
 
-    for (int j = 0; j < steps; ++j) {
+    for (int j = 1; j < steps; ++j) {
         double x = a + j * h;
-        double derivative_value = fabs(cos(0.1 * 5 * x));  // Примерная производная для f(x)
+        double derivative_value = fabs(-cos(0.1 * n * x) / pow(x + sin(0.1 * n * x), 2));  // Производная от f(x)
         if (derivative_value > max_value) {
             max_value = derivative_value;
         }
     }
-    
+
     return max_value;
 }
 
@@ -86,7 +88,7 @@ int main() {
     }
 
     // Шаг 4: Оценка погрешности по последней формуле
-    double max_N1_derivative = max_derivative(a, b);  // Максимальная производная (N+1)-го порядка
+    double max_N1_derivative = max_derivative(a, b, n);  // Максимальная производная (N+1)-го порядка
     double error_estimate = (b - a) * max_N1_derivative / (N + 1);
 
     // Выводим результат

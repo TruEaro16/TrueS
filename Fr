@@ -1,5 +1,6 @@
 #include <iostream>
 #include <cmath>
+#include <locale>  // Для использования setlocale
 
 using namespace std;
 
@@ -10,12 +11,13 @@ double f(double x, double n) {
 }
 
 // Функция для вычисления полинома ω(x) для заданных узлов
-// ω(x) = ∏_{k=0}^{N} (x - x_k) (кроме x_i)
-// Возвращает значение ω(x) для точки x и заданного узла x_i
-double omega(double x, double* nodes, int N) {
+// ω(x) = ∏_{k=0}^{N} (x - x_k), исключая узел i
+double omega(double x, double* nodes, int N, int exclude) {
     double result = 1.0;
     for (int k = 0; k <= N; ++k) {
-        result *= (x - nodes[k]);
+        if (k != exclude) {  // Исключаем узел i для правильного вычисления
+            result *= (x - nodes[k]);
+        }
     }
     return result;
 }
@@ -30,7 +32,7 @@ double calculate_Ci(int i, double* nodes, int N, double a, double b) {
 
     for (int j = 0; j < steps; ++j) {
         double x = a + j * h;  // Текущая точка на интервале интегрирования
-        Ci += omega(x, nodes, N) / ((x - nodes[i]) * omega(nodes[i], nodes, N));  // Формула (24)
+        Ci += omega(x, nodes, N, i) / ((x - nodes[i]) * omega(nodes[i], nodes, N, i));  // Формула (24)
     }
 
     Ci *= h;  // Умножаем на шаг интегрирования для получения приближенного значения
@@ -39,14 +41,15 @@ double calculate_Ci(int i, double* nodes, int N, double a, double b) {
 
 // Функция для вычисления максимальной производной (N+1)-ой степени для оценки погрешности
 double max_derivative(double a, double b) {
-    // Предположим, что производная оценивается численно как максимум значения функции на интервале
+    // Для упрощения будем использовать абсолютное значение производной от sin(x)
+    // В реальном случае производную можно уточнить
     double max_value = 0.0;
     int steps = 1000;
     double h = (b - a) / steps;
 
     for (int j = 0; j < steps; ++j) {
         double x = a + j * h;
-        double derivative_value = fabs(sin(x));  // Примерная производная
+        double derivative_value = fabs(cos(0.1 * 5 * x));  // Примерная производная для f(x)
         if (derivative_value > max_value) {
             max_value = derivative_value;
         }
@@ -56,6 +59,8 @@ double max_derivative(double a, double b) {
 }
 
 int main() {
+    setlocale(LC_ALL, "Russian");  // Настройка локали для корректного вывода на русском языке
+
     double n = 5.0;  // Параметр n для подынтегральной функции
     double a = 0.2 * n;  // Нижний предел интегрирования (0.2 * n)
     double b = 2.0 * n;  // Верхний предел интегрирования (2 * n)

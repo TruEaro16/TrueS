@@ -1,97 +1,75 @@
 #include <iostream>
-#include <cmath>
-#include <locale>
+#include <cmath> // Для использования математических функций
+#include <locale.h> // Для установки русского языка
 
 using namespace std;
 
-// Подынтегральная функция f(x) = 1 / (x + sin(0.1 * n * x))
-// Эта функция возвращает значение подынтегральной функции в точке x для заданного параметра n
-double f(double x, double n) {
-    return 1.0 / (x + sin(0.1 * n * x));
-}
-
-// Функция для вычисления полинома ω(x) для заданных узлов
-// ω(x) = ∏_{k=0, k≠i}^{N} (x - x_k)
-double omega(double x, double* nodes, int N, int exclude) {
-    double result = 1.0;
-    for (int k = 0; k <= N; ++k) {
-        if (k != exclude) {  // Исключаем узел i для правильного вычисления
-            result *= (x - nodes[k]);
-        }
-    }
-    return result;
-}
-
-// Производная ω'(x_i) для узла x_i
-// Вычисляем производную ω(x) = ∏_{k=0, k≠i}^{N} (x - x_k) в точке x_i
-double omega_derivative(double x_i, double* nodes, int N) {
-    double derivative = 0.0;
-
-    // Сумма по каждому элементу для производной от ω(x) в узле x_i
-    for (int k = 0; k <= N; ++k) {
-        if (k != k) {
-            double term = 1.0;
-            // Произведение всех (x_i - x_j) для j ≠ k, j ≠ i
-            for (int j = 0; j <= N; ++j) {
-                if (j != k && j != k) {
-                    term *= (x_i - nodes[j]);
-                }
-            }
-            derivative += term;
-        }
-    }
-
-    return derivative;
-}
-
-// Функция для вычисления весового коэффициента C_i
-// Вычисляем C_i по формуле (24)
-double calculate_Ci(int i, double* nodes, int N, double a, double b) {
-    double Ci = 0.0;
-    int steps = 10000;  // Количество шагов для численного интегрирования
-    double h = (b - a) / steps;
-
-    for (int j = 0; j < steps; ++j) {
-        double x = a + j * h;
-        double omega_val = omega(x, nodes, N, i);
-        if (omega_val != 0) {
-            Ci += omega_val / ((x - nodes[i]) * omega_derivative(nodes[i], nodes, N));
-        }
-    }
-    Ci *= h;  // Умножаем на шаг интегрирования для получения приближенного значения
-    return Ci;
+// Функция f(x, y) для варианта 5
+double f(double x, double y) {
+    return x * sin(x) * exp(-x * x) - 2 * x * y;
 }
 
 int main() {
+    // Устанавливаем русскую локализацию для вывода текста
     setlocale(LC_ALL, "Russian");
 
-    double n = 5.0;  // Параметр n для подынтегральной функции
-    double a = 0.2 * n;  // Нижний предел интегрирования
-    double b = 2.0 * n;  // Верхний предел интегрирования
-    int N = 2;  // Количество узлов интерполяции
+    // Входные данные
+    double a = 0; // Начальная точка
+    double b = 1; // Конечная точка
+    int N = 10;   // Количество точек разбиения (чем больше, тем точнее)
+    double y0 = 1; // Начальное условие: y(0) = 1
+    double h = (b - a) / N; // Шаг
 
-    // Массив для хранения узлов интерполяции
-    double* nodes = new double[N + 1];
+    // Динамические массивы для хранения значений x и y
+    double* x = new double[N + 1];
+    double* y_prev = new double[N + 1]; // Предыдущее приближение
+    double* y_curr = new double[N + 1]; // Текущее приближение
 
-    // Определяем равномерные узлы на отрезке [a, b]
-    for (int i = 0; i <= N; ++i) {
-        nodes[i] = a + i * (b - a) / N;
+    // Заполняем массив x значениями
+    for (int i = 0; i <= N; i++) {
+        x[i] = a + i * h; // равномерное разбиение от a до b
     }
 
-    // Переменная для хранения значения интеграла
-    double integral = 0.0;
-
-    // Шаг 1: Вычисляем значение интеграла с использованием формул интерполяционного типа
-    for (int i = 0; i <= N; ++i) {
-        double Ci = calculate_Ci(i, nodes, N, a, b);  // Вычисляем весовой коэффициент C_i
-        integral += Ci * f(nodes[i], n);  // Добавляем вклад каждого узла в интеграл
+    // Начальное приближение: y(0)(x) = y0 (постоянная функция)
+    for (int i = 0; i <= N; i++) {
+        y_prev[i] = y0;
     }
 
-    // Выводим результат
-    cout << "Значение интеграла I1 с использованием формул интерполяционного типа = " << integral << endl;
+    // Итерационный процесс метода Пикара
+    for (int k = 0; k < 5; k++) { // Проводим 5 итераций
+        // Первое значение всегда равно y0
+        y_curr[0] = y0;
+
+        // Для каждого узла x[i] вычисляем новое значение y
+        for (int i = 1; i <= N; i++) {
+            double integral = 0.0;
+
+            // Приближенное вычисление интеграла методом прямоугольников
+            for (int j = 0; j < i; j++) {
+                integral += f(x[j], y_prev[j]) * h;
+            }
+
+            // Новое приближение
+            y_curr[i] = y0 + integral;
+        }
+
+        // Копируем текущее приближение в предыдущее для следующей итерации
+        for (int i = 0; i <= N; i++) {
+            y_prev[i] = y_curr[i];
+        }
+
+        // Выводим промежуточные результаты каждой итерации
+        cout << "Итерация " << k + 1 << ": ";
+        for (int i = 0; i <= N; i++) {
+            cout << y_curr[i] << " ";
+        }
+        cout << endl;
+    }
 
     // Освобождаем динамически выделенную память
-    delete[] nodes;
+    delete[] x;
+    delete[] y_prev;
+    delete[] y_curr;
 
     return 0;
 }

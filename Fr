@@ -12,17 +12,28 @@ struct Element {
 
 // Функция для сравнения двух элементов по строке и столбцу
 bool compareElements(const Element &a, const Element &b) {
-    if (a.row == b.col) {
-        return a.col < b.col;
+    if (a.row == b.row) {
+        return a.col < b.col; // Если строки одинаковы, сортируем по столбцу
     }
-    return a.row < b.row;
+    return a.row < b.row; // Иначе сортируем по строке
 }
 
 int main() {
+    // Открытие файлов на рабочем столе (замените "имя_пользователя" на свое имя пользователя)
     ifstream fin("/Users/имя_пользователя/Desktop/1138_bus.mtx");
     ofstream fout("/Users/имя_пользователя/Desktop/AA.txt");
 
-    int n, m, nnz;
+    if (!fin.is_open()) {
+        cerr << "Ошибка открытия входного файла!" << endl;
+        return 1;
+    }
+
+    if (!fout.is_open()) {
+        cerr << "Ошибка открытия выходного файла!" << endl;
+        return 1;
+    }
+
+    int n, m, nnz; // n - количество строк, m - количество столбцов, nnz - количество ненулевых элементов
     fin >> n >> m >> nnz;
 
     vector<Element> elements;
@@ -46,6 +57,8 @@ int main() {
 
     fin.close();
     fout.close();
+
+    cout << "Запись завершена. Результаты сохранены в файле AA.txt." << endl;
 
     return 0;
 }

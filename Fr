@@ -1,86 +1,51 @@
 #include <iostream>
-#include <cmath> // Для использования математических функций
-#include <locale.h> // Для установки русского языка
-
+#include <vector>
+#include <fstream>
+#include <algorithm>
 using namespace std;
 
-// Функция f(x, y) для варианта 5
-double f(double x, double y) {
-    return x * sin(x) * exp(-x * x) - 2 * x * y;
-}
+struct Element {
+    int row;
+    int col;
+    double value;
+};
 
-// Точное решение задачи Коши (если известно, для демонстрации возьмем примерную функцию)
-double exact_solution(double x) {
-    // Здесь предполагается, что точное решение известно.
-    // Замените эту функцию точным решением, если оно есть.
-    return exp(-x * x); // Пример функции точного решения
+// Функция для сравнения двух элементов по строке и столбцу
+bool compareElements(const Element &a, const Element &b) {
+    if (a.row == b.col) {
+        return a.col < b.col;
+    }
+    return a.row < b.row;
 }
 
 int main() {
-    // Устанавливаем русскую локализацию для вывода текста
-    setlocale(LC_ALL, "Russian");
+    ifstream fin("/Users/имя_пользователя/Desktop/1138_bus.mtx");
+    ofstream fout("/Users/имя_пользователя/Desktop/AA.txt");
 
-    // Входные данные
-    double a = 0; // Начальная точка
-    double b = 1; // Конечная точка
-    int N = 10;   // Количество точек разбиения (можно увеличить N для большей точности)
-    double y0 = 1; // Начальное условие: y(0) = 1
-    double h = (b - a) / N; // Шаг
+    int n, m, nnz;
+    fin >> n >> m >> nnz;
 
-    // Динамические массивы для хранения значений x, y (приближения), y_exact (точное решение)
-    double* x = new double[N + 1];
-    double* y_prev = new double[N + 1]; // Предыдущее приближение
-    double* y_curr = new double[N + 1]; // Текущее приближение
-    double* y_exact = new double[N + 1]; // Точное решение
+    vector<Element> elements;
 
-    // Заполняем массив x значениями
-    for (int i = 0; i <= N; i++) {
-        x[i] = a + i * h; // равномерное разбиение от a до b
-        y_exact[i] = exact_solution(x[i]); // Заполняем массив точного решения
+    // Чтение ненулевых элементов
+    for (int i = 0; i < nnz; i++) {
+        int row, col;
+        double value;
+        fin >> row >> col >> value;
+        elements.push_back({row, col, value});
     }
 
-    // Начальное приближение: y(0)(x) = y0 (постоянная функция)
-    for (int i = 0; i <= N; i++) {
-        y_prev[i] = y0;
+    // Сортировка элементов по строкам и столбцам
+    sort(elements.begin(), elements.end(), compareElements);
+
+    // Запись отсортированных элементов в файл
+    fout << n << " " << m << " " << nnz << endl;
+    for (const auto &element : elements) {
+        fout << element.row << " " << element.col << " " << element.value << endl;
     }
 
-    // Итерационный процесс метода Пикара
-    for (int k = 0; k < 5; k++) { // Проводим 5 итераций
-        // Первое значение всегда равно y0
-        y_curr[0] = y0;
-
-        // Для каждого узла x[i] вычисляем новое значение y
-        for (int i = 1; i <= N; i++) {
-            double integral = 0.0;
-
-            // Приближенное вычисление интеграла методом прямоугольников
-            for (int j = 0; j < i; j++) {
-                integral += f(x[j], y_prev[j]) * h;
-            }
-
-            // Новое приближение
-            y_curr[i] = y0 + integral;
-        }
-
-        // Копируем текущее приближение в предыдущее для следующей итерации
-        for (int i = 0; i <= N; i++) {
-            y_prev[i] = y_curr[i];
-        }
-    }
-
-    // Выводим таблицу результатов
-    cout << "Узел\tЧисленное решение\tТочное решение\tПогрешность\n";
-    cout << "---------------------------------------------------------\n";
-    for (int i = 0; i <= N; i++) {
-        double error = abs(y_curr[i] - y_exact[i]); // Вычисляем погрешность
-        cout << x[i] << "\t" << y_curr[i] << "\t\t" << y_exact[i] << "\t\t" << error << endl;
-    }
-
-    // Освобождаем динамически выделенную память
-    delete[] x;
-    delete[] y_prev;
-    delete[] y_curr;
-    delete[] y_exact;
+    fin.close();
+    fout.close();
 
     return 0;
 }

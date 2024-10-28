@@ -3,7 +3,7 @@
 #include <cmath>
 #include <iomanip>
 #include <vector>
-#include <omp.h> // Подключение OpenMP
+#include <omp.h>
 #include <ctime> // Подключение для использования time()
 
 using namespace std;
@@ -18,8 +18,8 @@ int main() {
     omp_set_num_threads(num_threads); // Установка количества потоков
 
     fstream f, br;
-    f.open("/Users/sava/Desktop/ex5.mtx");
-    br.open("/Users/sava/Desktop/Rightex.txt"); // Открытие файла b
+    f.open("/Users/sava/Desktop/rajat03.mtx");
+    br.open("/Users/sava/Desktop/Rightrajat.txt"); // Открытие файла b
 
     if (!f.is_open() || !br.is_open()) {
         cout << "Ошибка открытия файлов." << endl;
@@ -33,8 +33,8 @@ int main() {
     vector<int> numCols(Nenol);
     vector<int> numRows(Nenol);
     vector<double> b(n);
-    vector<double> x(n, 0.0);
-    vector<double> A(n * n, 0.0); // Создание массива A размером n x n
+    vector<double> x(n, 0.0); // Вектор решений
+    vector<double> r(n), p(n), Ap(n);
 
     // Чтение массива b из файла
     for (int i = 0; i < n; i++) {
@@ -44,16 +44,11 @@ int main() {
         }
     }
 
-    // Чтение данных в формате COO и сборка полной матрицы A
+    // Чтение данных в формате COO
     for (int i = 0; i < Nenol; i++) {
         f >> numRows[i] >> numCols[i] >> AV[i];
         numRows[i]--; // Корректировка индексов
         numCols[i]--;
-        A[numRows[i] * n + numCols[i]] += AV[i];
-        if (numRows[i] != numCols[i]) {
-            // Обеспечение симметрии матрицы
-            A[numCols[i] * n + numRows[i]] += AV[i];
-        }
     }
 
     f.close();
@@ -62,12 +57,7 @@ int main() {
     // Параметры метода сопряжённых градиентов
     int max_iter = 2000;
     double tol = 1e-3;
-
     int iter_count = 0; // Счётчик итераций
-
-    vector<double> r(n);
-    vector<double> p(n);
-    vector<double> Ap(n);
 
     // Начало отсчета времени с использованием time()
     time_t start_time = time(nullptr);
@@ -75,14 +65,8 @@ int main() {
     // Вычисление r = b - Ax
     #pragma omp parallel for
     for (int i = 0; i < n; i++) {
-        double Ax_i = 0.0;
-        for (int j = 0; j < n; j++) {
-            Ax_i += A[i * n + j] * x[j];
-        }
-        r[i] = b[i] - Ax_i;
+        r[i] = b[i];
     }
-
-    // Инициализация p = r
     p = r;
 
     double rsold = 0.0;
@@ -94,13 +78,20 @@ int main() {
     for (int iter = 0; iter < max_iter; iter++) {
         iter_count++; // Увеличиваем счётчик итераций
 
-        // Вычисление Ap = A * p
+        // Вычисление Ap = A * p (разреженная матрица)
         #pragma omp parallel for
         for (int i = 0; i < n; i++) {
             Ap[i] = 0.0;
-            for (int j = 0; j < n; j++) {
-                Ap[i] += A[i * n + j] * p[j];
-            }
+        }
+
+        #pragma omp parallel for
+        for (int i = 0; i < Nenol; i++) {
+            int row = numRows[i];
+            int col = numCols[i];
+            double value = AV[i];
+
+            #pragma omp atomic
+            Ap[row] += value * p[col];
         }
 
         double alpha_num = rsold;
@@ -109,6 +100,7 @@ int main() {
         for (int i = 0; i < n; i++) {
             alpha_den += p[i] * Ap[i];
         }
+
         double alpha = alpha_num / alpha_den;
 
         // Обновление x = x + alpha * p

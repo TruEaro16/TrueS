@@ -1,64 +1,164 @@
-#include <iostream>
-#include <vector>
 #include <fstream>
-#include <algorithm>
+#include <iostream>
+#include <cmath>
+#include <iomanip>
+#include <vector>
+#include <omp.h> // Подключение OpenMP
+#include <ctime> // Подключение для использования time()
+
 using namespace std;
 
-struct Element {
-    int row;
-    int col;
-    double value;
-};
-
-// Функция для сравнения двух элементов по строке и столбцу
-bool compareElements(const Element &a, const Element &b) {
-    if (a.row == b.row) {
-        return a.col < b.col; // Если строки одинаковы, сортируем по столбцу
-    }
-    return a.row < b.row; // Иначе сортируем по строке
-}
-
 int main() {
-    // Открытие файлов на рабочем столе (замените "имя_пользователя" на свое имя пользователя)
-    ifstream fin("/Users/имя_пользователя/Desktop/1138_bus.mtx");
-    ofstream fout("/Users/имя_пользователя/Desktop/AA.txt");
+    setlocale(LC_ALL, "Russian");
 
-    if (!fin.is_open()) {
-        cerr << "Ошибка открытия входного файла!" << endl;
-        return 1;
+    // Задаем количество потоков через OpenMP
+    int num_threads;
+    cout << "Введите количество потоков: ";
+    cin >> num_threads;
+    omp_set_num_threads(num_threads); // Установка количества потоков
+
+    fstream f, br;
+    f.open("/Users/sava/Desktop/ex5.mtx");
+    br.open("/Users/sava/Desktop/Rightex.txt"); // Открытие файла b
+
+    if (!f.is_open() || !br.is_open()) {
+        cout << "Ошибка открытия файлов." << endl;
+        return -1;
     }
 
-    if (!fout.is_open()) {
-        cerr << "Ошибка открытия выходного файла!" << endl;
-        return 1;
+    int n, m, Nenol;
+    f >> n >> m >> Nenol;
+
+    vector<double> AV(Nenol);
+    vector<int> numCols(Nenol);
+    vector<int> numRows(Nenol);
+    vector<double> b(n);
+    vector<double> x(n, 0.0);
+    vector<double> A(n * n, 0.0); // Создание массива A размером n x n
+
+    // Чтение массива b из файла
+    for (int i = 0; i < n; i++) {
+        if (!(br >> b[i])) {
+            cout << "Ошибка чтения b." << endl;
+            return -1;
+        }
     }
 
-    int n, m, nnz; // n - количество строк, m - количество столбцов, nnz - количество ненулевых элементов
-    fin >> n >> m >> nnz;
-
-    vector<Element> elements;
-
-    // Чтение ненулевых элементов
-    for (int i = 0; i < nnz; i++) {
-        int row, col;
-        double value;
-        fin >> row >> col >> value;
-        elements.push_back({row, col, value});
+    // Чтение данных в формате COO и сборка полной матрицы A
+    for (int i = 0; i < Nenol; i++) {
+        f >> numRows[i] >> numCols[i] >> AV[i];
+        numRows[i]--; // Корректировка индексов
+        numCols[i]--;
+        A[numRows[i] * n + numCols[i]] += AV[i];
+        if (numRows[i] != numCols[i]) {
+            // Обеспечение симметрии матрицы
+            A[numCols[i] * n + numRows[i]] += AV[i];
+        }
     }
 
-    // Сортировка элементов по строкам и столбцам
-    sort(elements.begin(), elements.end(), compareElements);
+    f.close();
+    br.close();
 
-    // Запись отсортированных элементов в файл
-    fout << n << " " << m << " " << nnz << endl;
-    for (const auto &element : elements) {
-        fout << element.row << " " << element.col << " " << element.value << endl;
+    // Параметры метода сопряжённых градиентов
+    int max_iter = 2000;
+    double tol = 1e-3;
+
+    int iter_count = 0; // Счётчик итераций
+
+    vector<double> r(n);
+    vector<double> p(n);
+    vector<double> Ap(n);
+
+    // Начало отсчета времени с использованием time()
+    time_t start_time = time(nullptr);
+
+    // Вычисление r = b - Ax
+    #pragma omp parallel for
+    for (int i = 0; i < n; i++) {
+        double Ax_i = 0.0;
+        for (int j = 0; j < n; j++) {
+            Ax_i += A[i * n + j] * x[j];
+        }
+        r[i] = b[i] - Ax_i;
     }
 
-    fin.close();
-    fout.close();
+    // Инициализация p = r
+    p = r;
 
-    cout << "Запись завершена. Результаты сохранены в файле AA.txt." << endl;
+    double rsold = 0.0;
+    #pragma omp parallel for reduction(+:rsold)
+    for (int i = 0; i < n; i++) {
+        rsold += r[i] * r[i];
+    }
+
+    for (int iter = 0; iter < max_iter; iter++) {
+        iter_count++; // Увеличиваем счётчик итераций
+
+        // Вычисление Ap = A * p
+        #pragma omp parallel for
+        for (int i = 0; i < n; i++) {
+            Ap[i] = 0.0;
+            for (int j = 0; j < n; j++) {
+                Ap[i] += A[i * n + j] * p[j];
+            }
+        }
+
+        double alpha_num = rsold;
+        double alpha_den = 0.0;
+        #pragma omp parallel for reduction(+:alpha_den)
+        for (int i = 0; i < n; i++) {
+            alpha_den += p[i] * Ap[i];
+        }
+        double alpha = alpha_num / alpha_den;
+
+        // Обновление x = x + alpha * p
+        #pragma omp parallel for
+        for (int i = 0; i < n; i++) {
+            x[i] += alpha * p[i];
+        }
+
+        // Обновление r = r - alpha * Ap
+        #pragma omp parallel for
+        for (int i = 0; i < n; i++) {
+            r[i] -= alpha * Ap[i];
+        }
+
+        double rsnew = 0.0;
+        #pragma omp parallel for reduction(+:rsnew)
+        for (int i = 0; i < n; i++) {
+            rsnew += r[i] * r[i];
+        }
+
+        double residual = sqrt(rsnew);
+        if (residual < tol) {
+            cout << "Метод завершен за " << iter + 1 << " итераций." << endl;
+            break;
+        }
+
+        // Обновление p = r + (rsnew / rsold) * p
+        double beta = rsnew / rsold;
+        #pragma omp parallel for
+        for (int i = 0; i < n; i++) {
+            p[i] = r[i] + beta * p[i];
+        }
+
+        rsold = rsnew;
+    }
+
+    // Окончание отсчета времени с использованием time()
+    time_t end_time = time(nullptr);
+    double execution_time = difftime(end_time, start_time); // Вычисление времени выполнения
+
+    // Печать решения x
+    cout << "Решение x: " << endl;
+    for (int i = 0; i < n; i++) {
+        cout << x[i] << " ";
+    }
+    cout << endl;
+
+    // Вывод времени выполнения и количества итераций
+    cout << "Количество итераций: " << iter_count << endl;
+    cout << "Время выполнения программы: " << execution_time << " секунд" << endl;
 
     return 0;
 }

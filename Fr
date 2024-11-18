@@ -1,156 +1,216 @@
-#include <fstream>
 #include <iostream>
-#include <cmath>
-#include <iomanip>
 #include <vector>
-#include <omp.h>
-#include <ctime> // Подключение для использования time()
+#include <algorithm>
+#include <numeric>
+#include <random>
+#include <ctime>
+#include <cstdlib>
+#include <limits>
+#include <locale> // для setlocale
 
 using namespace std;
 
+// Определяем константы
+const int N = 8; // Количество подзадач
+const int M = 4; // Количество вычислительных узлов
+const int POPULATION_SIZE = 50; // Размер популяции
+const int EPOCHS = 100; // Количество эпох
+const double MUTATION_RATE = 0.1; // Вероятность мутации
+const int ELITE_SIZE = 10; // Количество лучших особей, которые сохраняются
+
+// Генератор случайных чисел
+mt19937 rng(random_device{}());
+
+// Структура данных для представления особи
+struct Individual {
+    vector<int> assignment; // Геном: распределение подзадач по узлам
+    double fitness; // Функция приспособленности: максимальное время работы узла
+};
+
+// Глобальные переменные
+vector<double> t(N); // Время выполнения подзадач
+vector<vector<double> > C(N, vector<double>(N)); // Матрица зависимостей
+vector<vector<double> > D(M, vector<double>(M)); // Матрица стоимости сети
+
+// Прототипы функций
+void initializeData(); // Инициализация данных
+double calculateFitness(const Individual& ind); // Вычисление функции приспособленности
+vector<Individual> generateInitialPopulation(); // Генерация начальной популяции
+Individual tournamentSelection(const vector<Individual>& population); // Турнирный отбор
+Individual crossover(const Individual& parent1, const Individual& parent2); // Кроссовер
+void mutate(Individual& ind); // Мутация
+void geneticAlgorithm(); // Основной алгоритм
+
 int main() {
-    setlocale(LC_ALL, "Russian");
-
-    // Задаем количество потоков через OpenMP
-    int num_threads;
-    cout << "Введите количество потоков: ";
-    cin >> num_threads;
-    omp_set_num_threads(num_threads); // Установка количества потоков
-
-    fstream f, br;
-    f.open("/Users/sava/Desktop/rajat03.mtx");
-    br.open("/Users/sava/Desktop/Rightrajat.txt"); // Открытие файла b
-
-    if (!f.is_open() || !br.is_open()) {
-        cout << "Ошибка открытия файлов." << endl;
-        return -1;
-    }
-
-    int n, m, Nenol;
-    f >> n >> m >> Nenol;
-
-    vector<double> AV(Nenol);
-    vector<int> numCols(Nenol);
-    vector<int> numRows(Nenol);
-    vector<double> b(n);
-    vector<double> x(n, 0.0); // Вектор решений
-    vector<double> r(n), p(n), Ap(n);
-
-    // Чтение массива b из файла
-    for (int i = 0; i < n; i++) {
-        if (!(br >> b[i])) {
-            cout << "Ошибка чтения b." << endl;
-            return -1;
-        }
-    }
-
-    // Чтение данных в формате COO
-    for (int i = 0; i < Nenol; i++) {
-        f >> numRows[i] >> numCols[i] >> AV[i];
-        numRows[i]--; // Корректировка индексов
-        numCols[i]--;
-    }
-
-    f.close();
-    br.close();
-
-    // Параметры метода сопряжённых градиентов
-    int max_iter = 2000;
-    double tol = 1e-3;
-    int iter_count = 0; // Счётчик итераций
-
-    // Начало отсчета времени с использованием time()
-    time_t start_time = time(nullptr);
-
-    // Вычисление r = b - Ax
-    #pragma omp parallel for
-    for (int i = 0; i < n; i++) {
-        r[i] = b[i];
-    }
-    p = r;
-
-    double rsold = 0.0;
-    #pragma omp parallel for reduction(+:rsold)
-    for (int i = 0; i < n; i++) {
-        rsold += r[i] * r[i];
-    }
-
-    for (int iter = 0; iter < max_iter; iter++) {
-        iter_count++; // Увеличиваем счётчик итераций
-
-        // Вычисление Ap = A * p (разреженная матрица)
-        #pragma omp parallel for
-        for (int i = 0; i < n; i++) {
-            Ap[i] = 0.0;
-        }
-
-        #pragma omp parallel for
-        for (int i = 0; i < Nenol; i++) {
-            int row = numRows[i];
-            int col = numCols[i];
-            double value = AV[i];
-
-            #pragma omp atomic
-            Ap[row] += value * p[col];
-        }
-
-        double alpha_num = rsold;
-        double alpha_den = 0.0;
-        #pragma omp parallel for reduction(+:alpha_den)
-        for (int i = 0; i < n; i++) {
-            alpha_den += p[i] * Ap[i];
-        }
-
-        double alpha = alpha_num / alpha_den;
-
-        // Обновление x = x + alpha * p
-        #pragma omp parallel for
-        for (int i = 0; i < n; i++) {
-            x[i] += alpha * p[i];
-        }
-
-        // Обновление r = r - alpha * Ap
-        #pragma omp parallel for
-        for (int i = 0; i < n; i++) {
-            r[i] -= alpha * Ap[i];
-        }
-
-        double rsnew = 0.0;
-        #pragma omp parallel for reduction(+:rsnew)
-        for (int i = 0; i < n; i++) {
-            rsnew += r[i] * r[i];
-        }
-
-        double residual = sqrt(rsnew);
-        if (residual < tol) {
-            cout << "Метод завершен за " << iter + 1 << " итераций." << endl;
-            break;
-        }
-
-        // Обновление p = r + (rsnew / rsold) * p
-        double beta = rsnew / rsold;
-        #pragma omp parallel for
-        for (int i = 0; i < n; i++) {
-            p[i] = r[i] + beta * p[i];
-        }
-
-        rsold = rsnew;
-    }
-
-    // Окончание отсчета времени с использованием time()
-    time_t end_time = time(nullptr);
-    double execution_time = difftime(end_time, start_time); // Вычисление времени выполнения
-
-    // Печать решения x
-    cout << "Решение x: " << endl;
-    for (int i = 0; i < n; i++) {
-        cout << x[i] << " ";
-    }
-    cout << endl;
-
-    // Вывод времени выполнения и количества итераций
-    cout << "Количество итераций: " << iter_count << endl;
-    cout << "Время выполнения программы: " << execution_time << " секунд" << endl;
-
+    setlocale(LC_ALL, "Russian"); // Устанавливаем локаль для поддержки русского языка
+    initializeData(); // Инициализируем данные
+    geneticAlgorithm(); // Запускаем генетический алгоритм
     return 0;
+}
+
+// Инициализация t, C, D данными пользователя
+void initializeData() {
+    // Инициализация t[N] - время выполнения подзадач
+    double temp_t[] = {8, 17, 23, 21, 69, 4, 70, 55};
+    t.assign(temp_t, temp_t + N);
+
+    // Инициализация C[N][N] - матрица зависимостей между подзадачами
+    double temp_C[N][N] = {
+        {0, 0, 5, 0, 0, 0, 5, 0},
+        {0, 5, 0, 2, 0, 0, 0, 3},
+        {10, 0, 2, 0, 6, 0, 7, 0},
+        {1, 0, 0, 6, 0, 0, 0, 0},
+        {23, 0, 0, 0, 0, 0, 8, 0},
+        {0, 5, 0, 7, 0, 8, 0, 9},
+        {2, 0, 3, 0, 0, 0, 9, 0},
+        {1, 6, 1, 7, 1, 2, 1, 9}
+    };
+    for (int i = 0; i < N; ++i) {
+        C[i].assign(temp_C[i], temp_C[i] + N);
+    }
+
+    // Инициализация D[M][M] - матрица стоимости передачи данных между узлами
+    double temp_D[M][M] = {
+        {0, 2, 3, 2},
+        {2, 0, 4, 1},
+        {3, 4, 0, 1},
+        {2, 1, 1, 0}
+    };
+    for (int i = 0; i < M; ++i) {
+        D[i].assign(temp_D[i], temp_D[i] + M);
+    }
+}
+
+// Вычисление функции приспособленности: максимальное время работы узла
+double calculateFitness(const Individual& ind) {
+    vector<double> node_times(M, 0.0); // Вектор для хранения времени работы каждого узла
+
+    // Проходим по всем подзадачам
+    for (int i = 0; i < N; ++i) {
+        int node_i = ind.assignment[i]; // Узел, на котором выполняется подзадача i
+        node_times[node_i] += t[i]; // Добавляем время выполнения подзадачи i к узлу node_i
+
+        // Проходим по зависимостям подзадачи i
+        for (int j = 0; j < N; ++j) {
+            if (C[i][j] != 0.0) {
+                int node_j = ind.assignment[j]; // Узел, на котором выполняется подзадача j
+                if (node_i != node_j) {
+                    // Если подзадачи на разных узлах, добавляем время передачи данных к узлу-получателю
+                    double transfer_time = C[i][j] * D[node_i][node_j];
+                    node_times[node_i] += transfer_time;
+                }
+            }
+        }
+    }
+
+    // Ищем максимальное время среди всех узлов
+    double max_time = *max_element(node_times.begin(), node_times.end());
+    return max_time; // Возвращаем максимальное время работы узла в качестве функции приспособленности
+}
+
+// Генерация начальной популяции
+vector<Individual> generateInitialPopulation() {
+    vector<Individual> population(POPULATION_SIZE);
+    uniform_int_distribution<> dist_node(0, M - 1); // Распределение для выбора узла
+
+    // Для каждой особи в популяции
+    for (size_t idx = 0; idx < population.size(); ++idx) {
+        Individual& ind = population[idx];
+        ind.assignment.resize(N);
+        for (int i = 0; i < N; ++i) {
+            ind.assignment[i] = dist_node(rng); // Случайно назначаем узел подзадаче
+        }
+        ind.fitness = calculateFitness(ind); // Вычисляем приспособленность
+    }
+    return population;
+}
+
+// Турнирный отбор
+Individual tournamentSelection(const vector<Individual>& population) {
+    uniform_int_distribution<> dist_index(0, POPULATION_SIZE - 1);
+    Individual best = population[dist_index(rng)]; // Выбираем первую случайную особь
+    // Проводим турнир среди нескольких особей
+    for (int i = 0; i < 3; ++i) {
+        Individual ind = population[dist_index(rng)];
+        if (ind.fitness < best.fitness) {
+            best = ind; // Обновляем лучшую особь
+        }
+    }
+    return best;
+}
+
+// Кроссовер между двумя родителями для создания потомка
+Individual crossover(const Individual& parent1, const Individual& parent2) {
+    Individual child;
+    child.assignment.resize(N);
+    uniform_int_distribution<> dist_point(0, N - 1);
+    int crossover_point = dist_point(rng); // Точка кроссовера
+
+    // Формируем потомка
+    for (int i = 0; i < N; ++i) {
+        if (i < crossover_point) {
+            child.assignment[i] = parent1.assignment[i];
+        } else {
+            child.assignment[i] = parent2.assignment[i];
+        }
+    }
+    return child;
+}
+
+// Мутация особи
+void mutate(Individual& ind) {
+    uniform_real_distribution<> dist_mutate(0.0, 1.0);
+    uniform_int_distribution<> dist_node(0, M - 1);
+    for (int i = 0; i < N; ++i) {
+        if (dist_mutate(rng) < MUTATION_RATE) {
+            ind.assignment[i] = dist_node(rng); // Меняем узел подзадачи
+        }
+    }
+}
+
+// Основная функция генетического алгоритма
+void geneticAlgorithm() {
+    vector<Individual> population = generateInitialPopulation(); // Генерируем начальную популяцию
+    Individual best_individual = population[0]; // Инициализируем лучшую особь
+
+    // Основной цикл по эпохам
+    for (int epoch = 0; epoch < EPOCHS; ++epoch) {
+        // Сортируем популяцию по приспособленности (в порядке возрастания)
+        sort(population.begin(), population.end(), [](const Individual& a, const Individual& b) {
+            return a.fitness < b.fitness;
+        });
+
+        // Обновляем лучшую особь, если найдена более приспособленная
+        if (population[0].fitness < best_individual.fitness) {
+            best_individual = population[0];
+        }
+
+        // Выводим лучшую приспособленность на текущей эпохе
+        cout << "Эпоха " << epoch << ", Лучшая приспособленность: " << best_individual.fitness << endl;
+
+        // Создаем новую популяцию
+        vector<Individual> new_population;
+
+        // Элитизм: переносим лучших особей в новую популяцию
+        new_population.insert(new_population.end(), population.begin(), population.begin() + ELITE_SIZE);
+
+        // Заполняем остальную часть популяции
+        while (new_population.size() < POPULATION_SIZE) {
+            Individual parent1 = tournamentSelection(population); // Выбираем первого родителя
+            Individual parent2 = tournamentSelection(population); // Выбираем второго родителя
+            Individual child = crossover(parent1, parent2); // Кроссовер
+            mutate(child); // Мутация потомка
+            child.fitness = calculateFitness(child); // Вычисляем приспособленность потомка
+            new_population.push_back(child); // Добавляем потомка в новую популяцию
+        }
+
+        population = new_population; // Обновляем популяцию
+    }
+
+    // Выводим лучшее распределение подзадач по узлам
+    cout << "\nЛучшее распределение подзадач по узлам:" << endl;
+    for (int i = 0; i < N; ++i) {
+        cout << "Подзадача " << i << " -> Узел " << best_individual.assignment[i] << endl;
+    }
+    cout << "Максимальное время работы узла: " << best_individual.fitness << endl;
 }

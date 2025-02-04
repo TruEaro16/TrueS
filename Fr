@@ -46,6 +46,27 @@ public:
         return true;
     }
 
+    // Вывод информации о сетке
+    void printMeshInfo() {
+        cout << "\n===== Информация о сетке =====\n";
+        cout << "Количество узлов: " << nodes.size() << endl;
+        cout << "Количество элементов: " << elements.size() << endl;
+
+        // Вывод первых 5 узлов
+        cout << "\nПример узлов (первые 5):\n";
+        for (size_t i = 0; i < min(nodes.size(), size_t(5)); ++i) {
+            cout << "Node " << nodes[i].id << ": (" << nodes[i].x << ", " << nodes[i].y << ", " << nodes[i].z << ")\n";
+        }
+
+        // Вывод первых 5 элементов
+        cout << "\nПример элементов (первые 5):\n";
+        for (size_t i = 0; i < min(elements.size(), size_t(5)); ++i) {
+            cout << "Element " << elements[i].id << " (Type " << elements[i].type << ") Nodes: ";
+            for (int nid : elements[i].node_ids) cout << nid << " ";
+            cout << endl;
+        }
+    }
+
     // Функция сохранения в .pvtu
     bool saveToPVTU(const string& filename) {
         ofstream file(filename);
@@ -71,7 +92,7 @@ public:
         file << "</VTKFile>\n";
 
         file.close();
-        cout << "Файл сохранен: " << filename << endl;
+        cout << "Файл успешно сохранен: " << filename << endl;
         return true;
     }
 
@@ -141,18 +162,6 @@ private:
             default: return 0;
         }
     }
-
-    // Конвертация типа элемента Gmsh → VTK
-    int convertGmshToVTKType(int gmshType) {
-        switch (gmshType) {
-            case 15: return 1;  // Точка → VTK_VERTEX
-            case 1: return 3;   // Линия → VTK_LINE
-            case 2: return 5;   // Треугольник → VTK_TRIANGLE
-            case 3: return 9;   // Квадрат → VTK_QUAD
-            case 4: return 10;  // Тетраэдр → VTK_TETRA
-            default: return 0;
-        }
-    }
 };
 
 // Главная функция
@@ -164,6 +173,7 @@ int main() {
 
     if (mesh.loadMesh(msh_filename)) {
         cout << "Файл " << msh_filename << " успешно загружен!\n";
+        mesh.printMeshInfo();
         mesh.saveToPVTU(pvtu_filename);
     } else {
         cout << "Ошибка при загрузке файла.\n";

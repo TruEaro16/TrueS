@@ -1,269 +1,173 @@
 #include <iostream>
+#include <fstream>
 #include <vector>
-#include <algorithm>
-#include <numeric>
-#include <random>
-#include <fstream> // Для чтения из файлов
 #include <sstream>
-#include <locale> // для setlocale
+#include <string>
 
 using namespace std;
 
-// Определяем константы
-int N; // Количество подзадач (будет определено после чтения данных)
-int M; // Количество вычислительных узлов (будет определено после чтения данных)
-const int POPULATION_SIZE = 50; // Размер популяции
-const int EPOCHS = 100; // Количество эпох
-const double MUTATION_RATE = 0.1; // Вероятность мутации
-const int ELITE_SIZE = 10; // Количество лучших особей, которые сохраняются
-
-// Генератор случайных чисел
-mt19937 rng(random_device{}());
-
-// Структура данных для представления особи
-struct Individual {
-    vector<int> assignment; // Геном: распределение подзадач по узлам
-    double fitness; // Функция приспособленности: максимальное время работы узла
+// Структура узла (точка)
+struct Node {
+    int id;
+    double x, y, z;
 };
 
-// Глобальные переменные
-vector<double> t; // Время выполнения подзадач
-vector<vector<double> > C; // Матрица зависимостей
-vector<vector<double> > D; // Матрица стоимости сети
+// Структура элемента (линия, треугольник и т. д.)
+struct Element {
+    int id;
+    int type;
+    vector<int> node_ids;
+};
 
-// Прототипы функций
-bool initializeData(); // Инициализация данных из файлов
-double calculateFitness(const Individual& ind); // Вычисление функции приспособленности
-vector<Individual> generateInitialPopulation(); // Генерация начальной популяции
-Individual tournamentSelection(const vector<Individual>& population); // Турнирный отбор
-Individual crossover(const Individual& parent1, const Individual& parent2); // Кроссовер
-void mutate(Individual& ind); // Мутация
-void geneticAlgorithm(); // Основной алгоритм
+// Класс для работы с сеткой
+class Mesh {
+public:
+    vector<Node> nodes;
+    vector<Element> elements;
 
-int main() {
-    setlocale(LC_ALL, "Russian"); // Устанавливаем локаль для поддержки русского языка
-
-    if (!initializeData()) {
-        cerr << "Ошибка при чтении данных." << endl;
-        return 1;
-    }
-
-    geneticAlgorithm(); // Запускаем генетический алгоритм
-    return 0;
-}
-
-// Функция для чтения матрицы из файла
-bool readMatrix(const string& filename, vector<vector<double> >& matrix) {
-    ifstream infile(filename);
-    if (!infile.is_open()) {
-        cerr << "Не удалось открыть файл: " << filename << endl;
-        return false;
-    }
-
-    string line;
-    vector<vector<double> > temp_matrix;
-    while (getline(infile, line)) {
-        istringstream iss(line);
-        vector<double> row;
-        double value;
-        while (iss >> value) {
-            row.push_back(value);
+    // Функция загрузки .msh файла
+    bool loadMesh(const string& filename) {
+        ifstream file(filename);
+        if (!file.is_open()) {
+            cerr << "Ошибка: Не удалось открыть файл " << filename << endl;
+            return false;
         }
-        temp_matrix.push_back(row);
-    }
-    infile.close();
 
-    matrix = temp_matrix;
-    return true;
-}
-
-// Функция для чтения вектора из файла
-bool readVector(const string& filename, vector<double>& vec) {
-    ifstream infile(filename);
-    if (!infile.is_open()) {
-        cerr << "Не удалось открыть файл: " << filename << endl;
-        return false;
-    }
-
-    string line;
-    vector<double> temp_vec;
-    while (getline(infile, line)) {
-        istringstream iss(line);
-        double value;
-        while (iss >> value) {
-            temp_vec.push_back(value);
-        }
-    }
-    infile.close();
-
-    vec = temp_vec;
-    return true;
-}
-
-// Инициализация t, C, D данными из файлов
-bool initializeData() {
-    // Читаем вектор времени выполнения подзадач t из файла Vremya.txt
-    if (!readVector("Vremya.txt", t)) {
-        return false;
-    }
-
-    N = t.size(); // Устанавливаем количество подзадач
-
-    // Читаем матрицу зависимостей C из файла Svyazi.txt
-    if (!readMatrix("Svyazi.txt", C)) {
-        return false;
-    }
-
-    if (C.size() != N) {
-        cerr << "Размер матрицы зависимостей не соответствует количеству подзадач." << endl;
-        return false;
-    }
-
-    // Читаем матрицу стоимости передачи D из файла Stoimperes.txt
-    if (!readMatrix("Stoimperes.txt", D)) {
-        return false;
-    }
-
-    M = D.size(); // Устанавливаем количество узлов
-
-    if (D.size() != D[0].size()) {
-        cerr << "Матрица стоимости передачи должна быть квадратной." << endl;
-        return false;
-    }
-
-    return true;
-}
-
-// Вычисление функции приспособленности: максимальное время работы узла
-double calculateFitness(const Individual& ind) {
-    vector<double> node_times(M, 0.0); // Вектор для хранения времени работы каждого узла
-
-    // Проходим по всем подзадачам
-    for (int i = 0; i < N; ++i) {
-        int node_i = ind.assignment[i]; // Узел, на котором выполняется подзадача i
-        node_times[node_i] += t[i]; // Добавляем время выполнения подзадачи i к узлу node_i
-
-        // Проходим по зависимостям подзадачи i
-        for (int j = 0; j < N; ++j) {
-            if (C[i][j] != 0.0) {
-                int node_j = ind.assignment[j]; // Узел, на котором выполняется подзадача j
-                if (node_i != node_j) {
-                    // Если подзадачи на разных узлах, добавляем время передачи данных к узлу-получателю
-                    double transfer_time = C[i][j] * D[node_i][node_j];
-                    node_times[node_i] += transfer_time;
-                }
+        string line;
+        while (getline(file, line)) {
+            if (line == "$Nodes") {
+                readNodes(file);
+            } else if (line == "$Elements") {
+                readElements(file);
             }
         }
+
+        file.close();
+        return true;
     }
 
-    // Ищем максимальное время среди всех узлов
-    double max_time = *max_element(node_times.begin(), node_times.end());
-    return max_time; // Возвращаем максимальное время работы узла в качестве функции приспособленности
-}
-
-// Генерация начальной популяции
-vector<Individual> generateInitialPopulation() {
-    vector<Individual> population(POPULATION_SIZE);
-    uniform_int_distribution<> dist_node(0, M - 1); // Распределение для выбора узла
-
-    // Для каждой особи в популяции
-    for (size_t idx = 0; idx < population.size(); ++idx) {
-        Individual& ind = population[idx];
-        ind.assignment.resize(N);
-        for (int i = 0; i < N; ++i) {
-            ind.assignment[i] = dist_node(rng); // Случайно назначаем узел подзадаче
-        }
-        ind.fitness = calculateFitness(ind); // Вычисляем приспособленность
-    }
-    return population;
-}
-
-// Турнирный отбор
-Individual tournamentSelection(const vector<Individual>& population) {
-    uniform_int_distribution<> dist_index(0, POPULATION_SIZE - 1);
-    Individual best = population[dist_index(rng)]; // Выбираем первую случайную особь
-    // Проводим турнир среди нескольких особей
-    for (int i = 0; i < 3; ++i) {
-        Individual ind = population[dist_index(rng)];
-        if (ind.fitness < best.fitness) {
-            best = ind; // Обновляем лучшую особь
-        }
-    }
-    return best;
-}
-
-// Кроссовер между двумя родителями для создания потомка
-Individual crossover(const Individual& parent1, const Individual& parent2) {
-    Individual child;
-    child.assignment.resize(N);
-    uniform_int_distribution<> dist_point(0, N - 1);
-    int crossover_point = dist_point(rng); // Точка кроссовера
-
-    // Формируем потомка
-    for (int i = 0; i < N; ++i) {
-        if (i < crossover_point) {
-            child.assignment[i] = parent1.assignment[i];
-        } else {
-            child.assignment[i] = parent2.assignment[i];
-        }
-    }
-    return child;
-}
-
-// Мутация особи
-void mutate(Individual& ind) {
-    uniform_real_distribution<> dist_mutate(0.0, 1.0);
-    uniform_int_distribution<> dist_node(0, M - 1);
-    for (int i = 0; i < N; ++i) {
-        if (dist_mutate(rng) < MUTATION_RATE) {
-            ind.assignment[i] = dist_node(rng); // Меняем узел подзадачи
-        }
-    }
-}
-
-// Основная функция генетического алгоритма
-void geneticAlgorithm() {
-    vector<Individual> population = generateInitialPopulation(); // Генерируем начальную популяцию
-    Individual best_individual = population[0]; // Инициализируем лучшую особь
-
-    // Основной цикл по эпохам
-    for (int epoch = 0; epoch < EPOCHS; ++epoch) {
-        // Сортируем популяцию по приспособленности (в порядке возрастания)
-        sort(population.begin(), population.end(), [](const Individual& a, const Individual& b) {
-            return a.fitness < b.fitness;
-        });
-
-        // Обновляем лучшую особь, если найдена более приспособленная
-        if (population[0].fitness < best_individual.fitness) {
-            best_individual = population[0];
+    // Функция сохранения в .pvtu
+    bool saveToPVTU(const string& filename) {
+        ofstream file(filename);
+        if (!file.is_open()) {
+            cerr << "Ошибка: Не удалось создать файл " << filename << endl;
+            return false;
         }
 
-        // Выводим лучшую приспособленность на текущей эпохе
-        cout << "Эпоха " << epoch << ", Лучшая приспособленность: " << best_individual.fitness << endl;
+        file << "<?xml version=\"1.0\"?>\n";
+        file << "<VTKFile type=\"PUnstructuredGrid\" version=\"1.0\" byte_order=\"LittleEndian\">\n";
+        file << "  <PUnstructuredGrid GhostLevel=\"0\">\n";
+        file << "    <PPoints>\n";
+        file << "      <PDataArray type=\"Float32\" NumberOfComponents=\"3\" format=\"ascii\"/>\n";
+        file << "    </PPoints>\n";
 
-        // Создаем новую популяцию
-        vector<Individual> new_population;
+        file << "    <PCells>\n";
+        file << "      <PDataArray type=\"Int32\" Name=\"connectivity\" format=\"ascii\"/>\n";
+        file << "      <PDataArray type=\"Int32\" Name=\"offsets\" format=\"ascii\"/>\n";
+        file << "      <PDataArray type=\"UInt8\" Name=\"types\" format=\"ascii\"/>\n";
+        file << "    </PCells>\n";
 
-        // Элитизм: переносим лучших особей в новую популяцию
-        new_population.insert(new_population.end(), population.begin(), population.begin() + ELITE_SIZE);
+        file << "  </PUnstructuredGrid>\n";
+        file << "</VTKFile>\n";
 
-        // Заполняем остальную часть популяции
-        while (new_population.size() < POPULATION_SIZE) {
-            Individual parent1 = tournamentSelection(population); // Выбираем первого родителя
-            Individual parent2 = tournamentSelection(population); // Выбираем второго родителя
-            Individual child = crossover(parent1, parent2); // Кроссовер
-            mutate(child); // Мутация потомка
-            child.fitness = calculateFitness(child); // Вычисляем приспособленность потомка
-            new_population.push_back(child); // Добавляем потомка в новую популяцию
+        file.close();
+        cout << "Файл сохранен: " << filename << endl;
+        return true;
+    }
+
+private:
+    // Чтение узлов из .msh
+    void readNodes(ifstream& file) {
+        int numEntityBlocks, numNodes, minNodeTag, maxNodeTag;
+        file >> numEntityBlocks >> numNodes >> minNodeTag >> maxNodeTag;
+        nodes.reserve(numNodes);
+
+        for (int i = 0; i < numEntityBlocks; i++) {
+            int entityDim, entityTag, parametric, numNodesInBlock;
+            file >> entityDim >> entityTag >> parametric >> numNodesInBlock;
+
+            vector<int> nodeTags(numNodesInBlock);
+            for (int j = 0; j < numNodesInBlock; j++) {
+                file >> nodeTags[j];
+            }
+
+            for (int j = 0; j < numNodesInBlock; j++) {
+                double x, y, z;
+                file >> x >> y >> z;
+                nodes.push_back({nodeTags[j], x, y, z});
+            }
         }
-
-        population = new_population; // Обновляем популяцию
+        string endLine;
+        getline(file, endLine); // Пропускаем $EndNodes
     }
 
-    // Выводим лучшее распределение подзадач по узлам
-    cout << "\nЛучшее распределение подзадач по узлам:" << endl;
-    for (int i = 0; i < N; ++i) {
-        cout << "Подзадача " << i << " -> Узел " << best_individual.assignment[i] << endl;
+    // Чтение элементов из .msh
+    void readElements(ifstream& file) {
+        int numEntityBlocks, numElements, minElementTag, maxElementTag;
+        file >> numEntityBlocks >> numElements >> minElementTag >> maxElementTag;
+        elements.reserve(numElements);
+
+        for (int i = 0; i < numEntityBlocks; i++) {
+            int entityDim, entityTag, elementType, numElementsInBlock;
+            file >> entityDim >> entityTag >> elementType >> numElementsInBlock;
+
+            for (int j = 0; j < numElementsInBlock; j++) {
+                int elementTag;
+                file >> elementTag;
+
+                vector<int> nodeTags;
+                int numNodes = getNumNodesForElement(elementType);
+                for (int k = 0; k < numNodes; k++) {
+                    int nodeID;
+                    file >> nodeID;
+                    nodeTags.push_back(nodeID);
+                }
+
+                elements.push_back({elementTag, elementType, nodeTags});
+            }
+        }
+        string endLine;
+        getline(file, endLine); // Пропускаем $EndElements
     }
-    cout << "Максимальное время работы узла: " << best_individual.fitness << endl;
+
+    // Определение количества узлов в элементе по типу Gmsh
+    int getNumNodesForElement(int elementType) {
+        switch (elementType) {
+            case 15: return 1;  // Точка
+            case 1: return 2;   // Линия
+            case 2: return 3;   // Треугольник
+            case 3: return 4;   // Квадрат
+            case 4: return 4;   // Тетраэдр
+            default: return 0;
+        }
+    }
+
+    // Конвертация типа элемента Gmsh → VTK
+    int convertGmshToVTKType(int gmshType) {
+        switch (gmshType) {
+            case 15: return 1;  // Точка → VTK_VERTEX
+            case 1: return 3;   // Линия → VTK_LINE
+            case 2: return 5;   // Треугольник → VTK_TRIANGLE
+            case 3: return 9;   // Квадрат → VTK_QUAD
+            case 4: return 10;  // Тетраэдр → VTK_TETRA
+            default: return 0;
+        }
+    }
+};
+
+// Главная функция
+int main() {
+    Mesh mesh;
+
+    string msh_filename = "sava1.msh";  // Имя .msh файла
+    string pvtu_filename = "output.pvtu"; // Имя выходного файла для ParaView
+
+    if (mesh.loadMesh(msh_filename)) {
+        cout << "Файл " << msh_filename << " успешно загружен!\n";
+        mesh.saveToPVTU(pvtu_filename);
+    } else {
+        cout << "Ошибка при загрузке файла.\n";
+    }
+
+    return 0;
 }

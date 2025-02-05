@@ -1,183 +1,105 @@
 #include <iostream>
 #include <fstream>
-#include <vector>
-#include <sstream>
-#include <string>
 
 using namespace std;
 
-// Структура узла (точка)
-struct Node {
-    int id;
+struct Point {
     double x, y, z;
 };
 
-// Структура элемента (линия, треугольник и т. д.)
-struct Element {
-    int id;
-    int type;
-    vector<int> node_ids;
-};
+// Функция для нахождения точки пересечения ребра с плоскостью
+bool intersection(Point A, Point B, double A1, double B1, double C1, double D1, Point &result) {
+    double t, denom = A1 * (B.x - A.x) + B1 * (B.y - A.y) + C1 * (B.z - A.z);
+    if (denom == 0) return false; // Отрезок параллелен плоскости
 
-// Класс для работы с сеткой
-class Mesh {
-public:
-    vector<Node> nodes;
-    vector<Element> elements;
+    t = -(A1 * A.x + B1 * A.y + C1 * A.z + D1) / denom;
+    if (t < 0 || t > 1) return false; // Точка пересечения вне отрезка
 
-    // Функция загрузки .msh файла
-    bool loadMesh(const string& filename) {
-        ifstream file(filename);
-        if (!file.is_open()) {
-            cerr << "Ошибка: Не удалось открыть файл " << filename << endl;
-            return false;
-        }
+    result.x = A.x + t * (B.x - A.x);
+    result.y = A.y + t * (B.y - A.y);
+    result.z = A.z + t * (B.z - A.z);
+    return true;
+}
 
-        string line;
-        while (getline(file, line)) {
-            if (line == "$Nodes") {
-                readNodes(file);
-            } else if (line == "$Elements") {
-                readElements(file);
-            }
-        }
+// Функция вычисления коэффициентов A, B, C, D уравнения плоскости по трём точкам
+void getPlaneEquation(Point p1, Point p2, Point p3, double &A, double &B, double &C, double &D) {
+    A = (p2.y - p1.y) * (p3.z - p1.z) - (p2.z - p1.z) * (p3.y - p1.y);
+    B = (p2.z - p1.z) * (p3.x - p1.x) - (p2.x - p1.x) * (p3.z - p1.z);
+    C = (p2.x - p1.x) * (p3.y - p1.y) - (p2.y - p1.y) * (p3.x - p1.x);
+    D = - (A * p1.x + B * p1.y + C * p1.z);
+}
 
-        file.close();
-        return true;
-    }
-
-    // Вывод информации о сетке
-    void printMeshInfo() {
-        cout << "\n===== Информация о сетке =====\n";
-        cout << "Количество узлов: " << nodes.size() << endl;
-        cout << "Количество элементов: " << elements.size() << endl;
-
-        // Вывод первых 5 узлов
-        cout << "\nПример узлов (первые 5):\n";
-        for (size_t i = 0; i < min(nodes.size(), size_t(5)); ++i) {
-            cout << "Node " << nodes[i].id << ": (" << nodes[i].x << ", " << nodes[i].y << ", " << nodes[i].z << ")\n";
-        }
-
-        // Вывод первых 5 элементов
-        cout << "\nПример элементов (первые 5):\n";
-        for (size_t i = 0; i < min(elements.size(), size_t(5)); ++i) {
-            cout << "Element " << elements[i].id << " (Type " << elements[i].type << ") Nodes: ";
-            for (int nid : elements[i].node_ids) cout << nid << " ";
-            cout << endl;
-        }
-    }
-
-    // Функция сохранения в .pvtu
-    bool saveToPVTU(const string& filename) {
-        ofstream file(filename);
-        if (!file.is_open()) {
-            cerr << "Ошибка: Не удалось создать файл " << filename << endl;
-            return false;
-        }
-
-        file << "<?xml version=\"1.0\"?>\n";
-        file << "<VTKFile type=\"PUnstructuredGrid\" version=\"1.0\" byte_order=\"LittleEndian\">\n";
-        file << "  <PUnstructuredGrid GhostLevel=\"0\">\n";
-        file << "    <PPoints>\n";
-        file << "      <PDataArray type=\"Float32\" NumberOfComponents=\"3\" format=\"ascii\"/>\n";
-        file << "    </PPoints>\n";
-
-        file << "    <PCells>\n";
-        file << "      <PDataArray type=\"Int32\" Name=\"connectivity\" format=\"ascii\"/>\n";
-        file << "      <PDataArray type=\"Int32\" Name=\"offsets\" format=\"ascii\"/>\n";
-        file << "      <PDataArray type=\"UInt8\" Name=\"types\" format=\"ascii\"/>\n";
-        file << "    </PCells>\n";
-
-        file << "  </PUnstructuredGrid>\n";
-        file << "</VTKFile>\n";
-
-        file.close();
-        cout << "Файл успешно сохранен: " << filename << endl;
-        return true;
-    }
-
-private:
-    // Чтение узлов из .msh
-    void readNodes(ifstream& file) {
-        int numEntityBlocks, numNodes, minNodeTag, maxNodeTag;
-        file >> numEntityBlocks >> numNodes >> minNodeTag >> maxNodeTag;
-        nodes.reserve(numNodes);
-
-        for (int i = 0; i < numEntityBlocks; i++) {
-            int entityDim, entityTag, parametric, numNodesInBlock;
-            file >> entityDim >> entityTag >> parametric >> numNodesInBlock;
-
-            vector<int> nodeTags(numNodesInBlock);
-            for (int j = 0; j < numNodesInBlock; j++) {
-                file >> nodeTags[j];
-            }
-
-            for (int j = 0; j < numNodesInBlock; j++) {
-                double x, y, z;
-                file >> x >> y >> z;
-                nodes.push_back({nodeTags[j], x, y, z});
-            }
-        }
-        string endLine;
-        getline(file, endLine); // Пропускаем $EndNodes
-    }
-
-    // Чтение элементов из .msh
-    void readElements(ifstream& file) {
-        int numEntityBlocks, numElements, minElementTag, maxElementTag;
-        file >> numEntityBlocks >> numElements >> minElementTag >> maxElementTag;
-        elements.reserve(numElements);
-
-        for (int i = 0; i < numEntityBlocks; i++) {
-            int entityDim, entityTag, elementType, numElementsInBlock;
-            file >> entityDim >> entityTag >> elementType >> numElementsInBlock;
-
-            for (int j = 0; j < numElementsInBlock; j++) {
-                int elementTag;
-                file >> elementTag;
-
-                vector<int> nodeTags;
-                int numNodes = getNumNodesForElement(elementType);
-                for (int k = 0; k < numNodes; k++) {
-                    int nodeID;
-                    file >> nodeID;
-                    nodeTags.push_back(nodeID);
-                }
-
-                elements.push_back({elementTag, elementType, nodeTags});
-            }
-        }
-        string endLine;
-        getline(file, endLine); // Пропускаем $EndElements
-    }
-
-    // Определение количества узлов в элементе по типу Gmsh
-    int getNumNodesForElement(int elementType) {
-        switch (elementType) {
-            case 15: return 1;  // Точка
-            case 1: return 2;   // Линия
-            case 2: return 3;   // Треугольник
-            case 3: return 4;   // Квадрат
-            case 4: return 4;   // Тетраэдр
-            default: return 0;
-        }
-    }
-};
-
-// Главная функция
 int main() {
-    Mesh mesh;
+    setlocale(LC_ALL, "Russian");
 
-    string msh_filename = "sava1.msh";  // Имя .msh файла
-    string pvtu_filename = "output.pvtu"; // Имя выходного файла для ParaView
-
-    if (mesh.loadMesh(msh_filename)) {
-        cout << "Файл " << msh_filename << " успешно загружен!\n";
-        mesh.printMeshInfo();
-        mesh.saveToPVTU(pvtu_filename);
-    } else {
-        cout << "Ошибка при загрузке файла.\n";
+    ifstream file("pyramid.txt");
+    if (!file) {
+        cout << "Ошибка открытия файла!" << endl;
+        return 1;
     }
+
+    int basePoints;
+    double height;
+    file >> basePoints >> height; // Количество точек основания и высота пирамиды
+
+    // Динамический массив для хранения точек основания
+    Point* base = new Point[basePoints];
+
+    for (int i = 0; i < basePoints; i++) {
+        file >> base[i].x >> base[i].y;
+        base[i].z = 0; // Основание пирамиды лежит в плоскости z = 0
+    }
+    file.close();
+
+    // Вершина пирамиды
+    Point apex = { 0, 0, height };
+
+    // Ввод трёх точек плоскости
+    Point p1, p2, p3;
+    cout << "Введите три точки плоскости (x y z):" << endl;
+    cout << "Точка 1: "; cin >> p1.x >> p1.y >> p1.z;
+    cout << "Точка 2: "; cin >> p2.x >> p2.y >> p2.z;
+    cout << "Точка 3: "; cin >> p3.x >> p3.y >> p3.z;
+
+    // Вычисляем коэффициенты уравнения плоскости
+    double A, B, C, D;
+    getPlaneEquation(p1, p2, p3, A, B, C, D);
+
+    // Динамический массив для хранения точек пересечения
+    Point* intersectionPoints = new Point[basePoints * 2]; // Максимально возможное число точек пересечения
+    int count = 0;
+
+    // Проверяем пересечения рёбер основания
+    for (int i = 0; i < basePoints; i++) {
+        Point p1 = base[i];
+        Point p2 = base[(i + 1) % basePoints]; // Следующая точка (последняя соединяется с первой)
+        Point inter;
+        if (intersection(p1, p2, A, B, C, D, inter)) {
+            intersectionPoints[count++] = inter;
+        }
+    }
+
+    // Проверяем пересечения рёбер от вершины до основания
+    for (int i = 0; i < basePoints; i++) {
+        Point inter;
+        if (intersection(base[i], apex, A, B, C, D, inter)) {
+            intersectionPoints[count++] = inter;
+        }
+    }
+
+    // Вывод точек пересечения
+    if (count == 0) {
+        cout << "Плоскость не пересекает пирамиду." << endl;
+    } else {
+        cout << "Точки пересечения:" << endl;
+        for (int i = 0; i < count; i++) {
+            cout << intersectionPoints[i].x << " " << intersectionPoints[i].y << " " << intersectionPoints[i].z << endl;
+        }
+    }
+
+    // Очистка памяти
+    delete[] base;
+    delete[] intersectionPoints;
 
     return 0;
 }

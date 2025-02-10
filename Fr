@@ -1,116 +1,115 @@
 #include <iostream>
 #include <fstream>
+#include <vector>
+#include <string>
+#include <sstream>
+#include <locale>
 
 using namespace std;
 
-struct Point {
-    double x, y, z;
+// Структура для хранения узла сетки
+struct Node {
+    int id;      // Номер узла
+    double x, y, z; // Координаты узла
 };
 
-// Функция для нахождения точки пересечения ребра с плоскостью
-bool intersection(Point A, Point B, double A1, double B1, double C1, double D1, Point &result) {
-    double t, denom = A1 * (B.x - A.x) + B1 * (B.y - A.y) + C1 * (B.z - A.z);
-    if (denom == 0) return false; // Отрезок параллелен плоскости
+// Структура для хранения элемента сетки
+struct Element {
+    int id;                   // Номер элемента
+    int type;                 // Тип элемента (например, треугольник, четырехугольник и т. д.)
+    vector<int> node_ids;     // Индексы узлов, образующих элемент
+};
 
-    t = -(A1 * A.x + B1 * A.y + C1 * A.z + D1) / denom;
-    if (t < 0 || t > 1) return false; // Точка пересечения вне отрезка
+// Класс для обработки файла .msh
+class Mesh {
+public:
+    vector<Node> nodes;       // Вектор узлов
+    vector<Element> elements; // Вектор элементов
 
-    result.x = A.x + t * (B.x - A.x);
-    result.y = A.y + t * (B.y - A.y);
-    result.z = A.z + t * (B.z - A.z);
-    return true;
-}
+    // Функция чтения файла .msh
+    void readMshFile(const string& filename) {
+        ifstream file(filename);
+        if (!file) {
+            cerr << "Ошибка: Не удалось открыть файл " << filename << endl;
+            return;
+        }
 
-// Функция вычисления коэффициентов A, B, C, D уравнения плоскости по трём точкам
-void getPlaneEquation(Point p1, Point p2, Point p3, double &A, double &B, double &C, double &D) {
-    A = (p2.y - p1.y) * (p3.z - p1.z) - (p2.z - p1.z) * (p3.y - p1.y);
-    B = (p2.z - p1.z) * (p3.x - p1.x) - (p2.x - p1.x) * (p3.z - p1.z);
-    C = (p2.x - p1.x) * (p3.y - p1.y) - (p2.y - p1.y) * (p3.x - p1.x);
-    D = - (A * p1.x + B * p1.y + C * p1.z);
-}
+        string line;
+        bool readingNodes = false;
+        bool readingElements = false;
+
+        while (getline(file, line)) {
+            if (line.find("$Nodes") != string::npos) {
+                readingNodes = true;
+                continue;
+            }
+            if (line.find("$EndNodes") != string::npos) {
+                readingNodes = false;
+                continue;
+            }
+            if (line.find("$Elements") != string::npos) {
+                readingElements = true;
+                continue;
+            }
+            if (line.find("$EndElements") != string::npos) {
+                readingElements = false;
+                continue;
+            }
+
+            if (readingNodes) {
+                stringstream ss(line);
+                Node node;
+                ss >> node.id >> node.x >> node.y >> node.z;
+                nodes.push_back(node);
+            }
+            if (readingElements) {
+                stringstream ss(line);
+                Element element;
+                int num_tags;
+                ss >> element.id >> element.type >> num_tags;
+                int temp;
+                for (int i = 0; i < num_tags; ++i) {
+                    ss >> temp; // Пропускаем теги
+                }
+                while (ss >> temp) {
+                    element.node_ids.push_back(temp);
+                }
+                elements.push_back(element);
+            }
+        }
+
+        file.close();
+        cout << "Файл " << filename << " успешно прочитан." << endl;
+        cout << "Количество узлов: " << nodes.size() << endl;
+        cout << "Количество элементов: " << elements.size() << endl;
+    }
+
+    // Функция для отображения информации о загруженной сетке
+    void displayMeshInfo() {
+        cout << "Информация о загруженной сетке:" << endl;
+        cout << "Узлы:" << endl;
+        for (const auto& node : nodes) {
+            cout << "ID: " << node.id << " Координаты: (" << node.x << ", " << node.y << ", " << node.z << ")" << endl;
+        }
+
+        cout << "Элементы:" << endl;
+        for (const auto& element : elements) {
+            cout << "ID: " << element.id << " Тип: " << element.type << " Узлы: ";
+            for (int node_id : element.node_ids) {
+                cout << node_id << " ";
+            }
+            cout << endl;
+        }
+    }
+};
 
 int main() {
     setlocale(LC_ALL, "Russian");
 
-    ifstream file("pyramid.txt");
-    if (!file) {
-        cout << "Ошибка открытия файла!" << endl;
-        return 1;
-    }
-
-    double height;
-    file >> height; // Читаем высоту пирамиды
-
-    // Считаем количество точек основания
-    int basePoints = 0;
-    Point temp;
-    while (file >> temp.x >> temp.y) {
-        basePoints++;
-    }
-
-    // Заново открываем файл для чтения координат
-    file.clear();
-    file.seekg(0);
-    file >> height; // Пропускаем высоту
-
-    // Динамический массив для хранения точек основания
-    Point* base = new Point[basePoints];
-
-    for (int i = 0; i < basePoints; i++) {
-        file >> base[i].x >> base[i].y;
-        base[i].z = 0; // Основание пирамиды лежит в плоскости z = 0
-    }
-    file.close();
-
-    // Вершина пирамиды
-    Point apex = { 0, 0, height };
-
-    // Ввод трёх точек плоскости
-    Point p1, p2, p3;
-    cout << "Введите три точки плоскости (x y z):" << endl;
-    cout << "Точка 1: "; cin >> p1.x >> p1.y >> p1.z;
-    cout << "Точка 2: "; cin >> p2.x >> p2.y >> p2.z;
-    cout << "Точка 3: "; cin >> p3.x >> p3.y >> p3.z;
-
-    // Вычисляем коэффициенты уравнения плоскости
-    double A, B, C, D;
-    getPlaneEquation(p1, p2, p3, A, B, C, D);
-
-    // Динамический массив для хранения точек пересечения
-    Point* intersectionPoints = new Point[basePoints * 2]; // Максимально возможное число точек пересечения
-    int count = 0;
-
-    // Проверяем пересечения рёбер основания
-    for (int i = 0; i < basePoints; i++) {
-        Point p1 = base[i];
-        Point p2 = base[(i + 1) % basePoints]; // Следующая точка (последняя соединяется с первой)
-        Point inter;
-        if (intersection(p1, p2, A, B, C, D, inter)) {
-            intersectionPoints[count++] = inter;
-        }
-    }
-
-    // Проверяем пересечения рёбер от вершины до основания
-    for (int i = 0; i < basePoints; i++) {
-        Point inter;
-        if (intersection(base[i], apex, A, B, C, D, inter)) {
-            intersectionPoints[count++] = inter;
-        }
-    }
-
-    // Вывод точек пересечения
-    if (count == 0) {
-        cout << "Плоскость не пересекает пирамиду." << endl;
-    } else {
-        cout << "Точки пересечения:" << endl;
-        for (int i = 0; i < count; i++) {
-            cout << intersectionPoints[i].x << " " << intersectionPoints[i].y << " " << intersectionPoints[i].z << endl;
-        }
-    }
-
-    // Очистка памяти
-    delete[] base;
-    delete[] intersectionPoints;
+    string filename = "/mnt/data/sava1.msh"; // Укажи правильный путь
+    Mesh mesh;
+    mesh.readMshFile(filename);
+    mesh.displayMeshInfo();
 
     return 0;
 }

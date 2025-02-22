@@ -1,115 +1,67 @@
-#include <iostream>
-#include <fstream>
-#include <vector>
-#include <string>
-#include <sstream>
-#include <locale>
+Привет! В ELMA (Enterprise Lifecycle Management Automation) для написания сценариев используется язык C#. Давайте рассмотрим пример сценария, который рассчитывает сумму платежа и сумму переплаты.
 
-using namespace std;
+Предположим, у нас есть следующие данные:
+- Сумма кредита (`loanAmount`)
+- Процентная ставка (`interestRate`)
+- Срок кредита в месяцах (`loanTermMonths`)
 
-// Структура для хранения узла сетки
-struct Node {
-    int id;      // Номер узла
-    double x, y, z; // Координаты узла
-};
+Мы хотим рассчитать:
+- Ежемесячный платеж (`monthlyPayment`)
+- Общую сумму переплаты (`totalOverpayment`)
 
-// Структура для хранения элемента сетки
-struct Element {
-    int id;                   // Номер элемента
-    int type;                 // Тип элемента (например, треугольник, четырехугольник и т. д.)
-    vector<int> node_ids;     // Индексы узлов, образующих элемент
-};
+Пример кода на C# для расчета:
 
-// Класс для обработки файла .msh
-class Mesh {
-public:
-    vector<Node> nodes;       // Вектор узлов
-    vector<Element> elements; // Вектор элементов
+```csharp
+using System;
 
-    // Функция чтения файла .msh
-    void readMshFile(const string& filename) {
-        ifstream file(filename);
-        if (!file) {
-            cerr << "Ошибка: Не удалось открыть файл " << filename << endl;
-            return;
-        }
+public class LoanCalculator
+{
+    public static void CalculateLoan(double loanAmount, double interestRate, int loanTermMonths)
+    {
+        // Преобразуем годовую процентную ставку в месячную
+        double monthlyInterestRate = interestRate / 100 / 12;
 
-        string line;
-        bool readingNodes = false;
-        bool readingElements = false;
+        // Рассчитываем ежемесячный платеж по формуле аннуитетного платежа
+        double monthlyPayment = loanAmount * (monthlyInterestRate * Math.Pow(1 + monthlyInterestRate, loanTermMonths)) 
+                                / (Math.Pow(1 + monthlyInterestRate, loanTermMonths) - 1);
 
-        while (getline(file, line)) {
-            if (line.find("$Nodes") != string::npos) {
-                readingNodes = true;
-                continue;
-            }
-            if (line.find("$EndNodes") != string::npos) {
-                readingNodes = false;
-                continue;
-            }
-            if (line.find("$Elements") != string::npos) {
-                readingElements = true;
-                continue;
-            }
-            if (line.find("$EndElements") != string::npos) {
-                readingElements = false;
-                continue;
-            }
+        // Рассчитываем общую сумму переплаты
+        double totalPayment = monthlyPayment * loanTermMonths;
+        double totalOverpayment = totalPayment - loanAmount;
 
-            if (readingNodes) {
-                stringstream ss(line);
-                Node node;
-                ss >> node.id >> node.x >> node.y >> node.z;
-                nodes.push_back(node);
-            }
-            if (readingElements) {
-                stringstream ss(line);
-                Element element;
-                int num_tags;
-                ss >> element.id >> element.type >> num_tags;
-                int temp;
-                for (int i = 0; i < num_tags; ++i) {
-                    ss >> temp; // Пропускаем теги
-                }
-                while (ss >> temp) {
-                    element.node_ids.push_back(temp);
-                }
-                elements.push_back(element);
-            }
-        }
-
-        file.close();
-        cout << "Файл " << filename << " успешно прочитан." << endl;
-        cout << "Количество узлов: " << nodes.size() << endl;
-        cout << "Количество элементов: " << elements.size() << endl;
+        // Выводим результаты
+        Console.WriteLine($"Ежемесячный платеж: {monthlyPayment:F2}");
+        Console.WriteLine($"Общая сумма переплаты: {totalOverpayment:F2}");
     }
 
-    // Функция для отображения информации о загруженной сетке
-    void displayMeshInfo() {
-        cout << "Информация о загруженной сетке:" << endl;
-        cout << "Узлы:" << endl;
-        for (const auto& node : nodes) {
-            cout << "ID: " << node.id << " Координаты: (" << node.x << ", " << node.y << ", " << node.z << ")" << endl;
-        }
+    public static void Main(string[] args)
+    {
+        // Пример использования
+        double loanAmount = 100000; // Сумма кредита
+        double interestRate = 12; // Годовая процентная ставка
+        int loanTermMonths = 12; // Срок кредита в месяцах
 
-        cout << "Элементы:" << endl;
-        for (const auto& element : elements) {
-            cout << "ID: " << element.id << " Тип: " << element.type << " Узлы: ";
-            for (int node_id : element.node_ids) {
-                cout << node_id << " ";
-            }
-            cout << endl;
-        }
+        CalculateLoan(loanAmount, interestRate, loanTermMonths);
     }
-};
-
-int main() {
-    setlocale(LC_ALL, "Russian");
-
-    string filename = "/mnt/data/sava1.msh"; // Укажи правильный путь
-    Mesh mesh;
-    mesh.readMshFile(filename);
-    mesh.displayMeshInfo();
-
-    return 0;
 }
+```
+
+### Объяснение кода:
+1. **Преобразование процентной ставки**: Годовая процентная ставка преобразуется в месячную, делением на 100 (чтобы получить десятичное значение) и на 12 (количество месяцев в году).
+
+2. **Расчет ежемесячного платежа**: Используется формула аннуитетного платежа:
+   \[
+   \text{monthlyPayment} = \text{loanAmount} \times \frac{\text{monthlyInterestRate} \times (1 + \text{monthlyInterestRate})^{\text{loanTermMonths}}}{(1 + \text{monthlyInterestRate})^{\text{loanTermMonths}} - 1}
+   \]
+
+3. **Расчет общей суммы переплаты**: Общая сумма переплаты рассчитывается как разница между общей суммой всех платежей и суммой кредита.
+
+4. **Вывод результатов**: Результаты выводятся в консоль.
+
+### Как использовать в ELMA:
+1. Создайте новый сценарий в ELMA.
+2. Вставьте код в соответствующий блок сценария.
+3. Убедитесь, что входные параметры (сумма кредита, процентная ставка, срок кредита) передаются в сценарий.
+4. Запустите сценарий и проверьте результаты.
+
+Этот код можно адаптировать под конкретные требования вашего проекта в ELMA. Если у вас есть дополнительные условия или требования, дайте знать, и я помогу доработать код!

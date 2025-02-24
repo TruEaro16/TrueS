@@ -1,167 +1,112 @@
 #include <iostream>
 #include <fstream>
-#include <vector>
 #include <string>
 #include <sstream>
-#include <limits>
-#include <cmath>
+#include <vector>
+#include <algorithm>
 
 struct Point {
     double x, y, z;
 };
 
-struct Element {
-    std::vector<int> node_indices;
-};
-
-// Функция для чтения VTU-файла
-bool LoadVTU(const std::string& filename, std::vector<Point>& points, std::vector<Element>& elements) {
+// Функция для чтения файла VTU
+bool readVTUFile(const std::string& filename, std::vector<Point>& points) {
     std::ifstream file(filename);
     if (!file.is_open()) {
-        std::cerr << "Ошибка: не удалось открыть файл " << filename << std::endl;
+        std::cerr << "Не удалось открыть файл " << filename << std::endl;
         return false;
     }
 
     std::string line;
     bool readingPoints = false;
-    bool readingCells = false;
-    
+
     while (std::getline(file, line)) {
         if (line.find("<Points>") != std::string::npos) {
             readingPoints = true;
         } else if (line.find("</Points>") != std::string::npos) {
             readingPoints = false;
-        } else if (line.find("<Cells>") != std::string::npos) {
-            readingCells = true;
-        } else if (line.find("</Cells>") != std::string::npos) {
-            readingCells = false;
-        } else if (readingPoints) {
-            std::istringstream iss(line);
-            double x, y, z;
-            if (iss >> x >> y >> z) {
-                points.push_back({x, y, z});
-            }
-        } else if (readingCells) {
-            std::istringstream iss(line);
-            std::vector<int> indices;
-            int index;
-            while (iss >> index) {
-                indices.push_back(index);
-            }
-            if (!indices.empty()) {
-                elements.push_back({indices});
+        }
+
+        if (readingPoints) {
+            if (line.find("<DataArray") != std::string::npos) {
+                std::string coordinates;
+                while (std::getline(file, line) && line.find("</DataArray>") == std::string::npos) {
+                    coordinates += line;
+                }
+
+                std::stringstream ss(coordinates);
+                double x, y, z;
+                while (ss >> x >> y >> z) {
+                    points.push_back({x, y, z});
+                }
             }
         }
     }
 
-    file.close();
     return true;
 }
 
-// Функция координатной биссекции
-std::vector<int> CoordinateBisection(const std::vector<Point>& points) {
-    double minX = std::numeric_limits<double>::max(), maxX = std::numeric_limits<double>::lowest();
-    double minY = minX, maxY = maxX, minZ = minX, maxZ = maxX;
-
-    for (const auto& p : points) {
-        minX = std::min(minX, p.x);
-        maxX = std::max(maxX, p.x);
-        minY = std::min(minY, p.y);
-        maxY = std::max(maxY, p.y);
-        minZ = std::min(minZ, p.z);
-        maxZ = std::max(maxZ, p.z);
+// Метод координатной биссекции для разбиения на две части по оси X
+void bisectPoints(std::vector<Point>& points, double coordinate) {
+    std::vector<Point> part1, part2;
+    
+    for (const auto& point : points) {
+        if (point.x < coordinate) {
+            part1.push_back(point);
+        } else {
+            part2.push_back(point);
+        }
     }
 
-    double rangeX = maxX - minX;
-    double rangeY = maxY - minY;
-    double rangeZ = maxZ - minZ;
-
-    int axis = (rangeX >= rangeY && rangeX >= rangeZ) ? 0 : (rangeY >= rangeX && rangeY >= rangeZ) ? 1 : 2;
-    double median = (axis == 0) ? (minX + maxX) / 2.0 : (axis == 1) ? (minY + maxY) / 2.0 : (minZ + maxZ) / 2.0;
-
-    std::vector<int> labels(points.size(), 0);
-    for (size_t i = 0; i < points.size(); ++i) {
-        double value = (axis == 0) ? points[i].x : (axis == 1) ? points[i].y : points[i].z;
-        labels[i] = (value >= median) ? 1 : 0;
-    }
-
-    return labels;
+    points = part1;  // Сохраняем одну из частей (можно модифицировать для других случаев)
 }
 
-// Функция сохранения VTU-файла
-void SaveVTU(const std::string& filename, const std::vector<Point>& points, const std::vector<Element>& elements) {
+// Функция для записи нового файла VTU с разбиением
+void writeVTUFile(const std::string& filename, const std::vector<Point>& points) {
     std::ofstream file(filename);
     if (!file.is_open()) {
-        std::cerr << "Ошибка: не удалось создать файл " << filename << std::endl;
+        std::cerr << "Не удалось открыть файл для записи " << filename << std::endl;
         return;
     }
 
-    file << "<VTKFile type=\"UnstructuredGrid\">\n";
-    file << "<UnstructuredGrid>\n";
-    file << "<Points>\n";
-    
-    for (const auto& p : points) {
-        file << p.x << " " << p.y << " " << p.z << "\n";
+    file << "<?xml version=\"1.0\"?>" << std::endl;
+    file << "<VTKFile type=\"UnstructuredGrid\" version=\"0.1\" byte_order=\"LittleEndian\">" << std::endl;
+    file << "<UnstructuredGrid>" << std::endl;
+    file << "<Piece NumberOfPoints=\"" << points.size() << "\" NumberOfCells=\"0\">" << std::endl;
+    file << "<Points>" << std::endl;
+    file << "<DataArray type=\"Float64\" NumberOfComponents=\"3\" format=\"ascii\">" << std::endl;
+
+    for (const auto& point : points) {
+        file << point.x << " " << point.y << " " << point.z << std::endl;
     }
-    
-    file << "</Points>\n";
-    file << "<Cells>\n";
-    
-    for (const auto& elem : elements) {
-        for (int idx : elem.node_indices) {
-            file << idx << " ";
-        }
-        file << "\n";
-    }
-    
-    file << "</Cells>\n";
-    file << "</UnstructuredGrid>\n";
-    file << "</VTKFile>\n";
+
+    file << "</DataArray>" << std::endl;
+    file << "</Points>" << std::endl;
+    file << "</Piece>" << std::endl;
+    file << "</UnstructuredGrid>" << std::endl;
+    file << "</VTKFile>" << std::endl;
+
     file.close();
 }
 
-// Главная функция
 int main() {
-    std::string input_file = "input.vtu";
-    std::string output_file1 = "output_part1.vtu";
-    std::string output_file2 = "output_part2.vtu";
+    std::string inputFile = "input.vtu";
+    std::string outputFile = "output.vtu";
 
+    // Шаг 1: Чтение данных из VTU файла
     std::vector<Point> points;
-    std::vector<Element> elements;
-
-    if (!LoadVTU(input_file, points, elements)) {
+    if (!readVTUFile(inputFile, points)) {
+        std::cerr << "Ошибка при чтении VTU файла!" << std::endl;
         return 1;
     }
 
-    std::vector<int> labels = CoordinateBisection(points);
+    // Шаг 2: Разбиение по координате (например, по X)
+    double bisectCoordinate = 0.5;  // Определим, на основе какого значения координаты X будем делить
+    bisectPoints(points, bisectCoordinate);
 
-    std::vector<Point> points1, points2;
-    std::vector<Element> elements1, elements2;
+    // Шаг 3: Запись в новый VTU файл
+    writeVTUFile(outputFile, points);
 
-    for (size_t i = 0; i < points.size(); ++i) {
-        if (labels[i] == 0) {
-            points1.push_back(points[i]);
-        } else {
-            points2.push_back(points[i]);
-        }
-    }
-
-    for (const auto& elem : elements) {
-        int sum_labels = 0;
-        for (int idx : elem.node_indices) {
-            sum_labels += labels[idx];
-        }
-
-        if (sum_labels == 0) {
-            elements1.push_back(elem);
-        } else if (sum_labels == elem.node_indices.size()) {
-            elements2.push_back(elem);
-        }
-    }
-
-    SaveVTU(output_file1, points1, elements1);
-    SaveVTU(output_file2, points2, elements2);
-
-    std::cout << "Файлы сохранены: " << output_file1 << " и " << output_file2 << std::endl;
+    std::cout << "Файл успешно записан!" << std::endl;
     return 0;
 }

@@ -1,67 +1,167 @@
-import numpy as np
-import meshio
+#include <iostream>
+#include <fstream>
+#include <vector>
+#include <string>
+#include <sstream>
+#include <limits>
+#include <cmath>
 
+struct Point {
+    double x, y, z;
+};
 
-def load_vtu(file_path: str) -> meshio.Mesh:
-    """Загружает VTU-файл и возвращает объект сетки."""
-    return meshio.read(file_path)
+struct Element {
+    std::vector<int> node_indices;
+};
 
+// Функция для чтения VTU-файла
+bool LoadVTU(const std::string& filename, std::vector<Point>& points, std::vector<Element>& elements) {
+    std::ifstream file(filename);
+    if (!file.is_open()) {
+        std::cerr << "Ошибка: не удалось открыть файл " << filename << std::endl;
+        return false;
+    }
 
-def coordinate_bisection(points: np.ndarray) -> np.ndarray:
-    """
-    Выполняет разбиение сетки методом координатной биссекции.
-
-    - Определяет ось с наибольшим разбросом координат.
-    - Разделяет точки по средней координате вдоль этой оси.
-
-    Возвращает массив меток разбиения (0 или 1).
-    """
-    min_coords = points.min(axis=0)
-    max_coords = points.max(axis=0)
-    axis = np.argmax(max_coords - min_coords)  # Выбор оси с наибольшим диапазоном
-    median = np.median(points[:, axis])  # Находим среднее значение вдоль этой оси
-
-    return (points[:, axis] >= median).astype(int)  # 0 - одна часть, 1 - другая
-
-
-def split_mesh(mesh: meshio.Mesh) -> tuple[meshio.Mesh, meshio.Mesh]:
-    """
-    Разбивает входную сетку на две части методом координатной биссекции.
-
-    Возвращает две новые сетки.
-    """
-    points = mesh.points
-    cells = mesh.cells_dict["tetra"] if "tetra" in mesh.cells_dict else mesh.cells_dict["triangle"]
-
-    labels = coordinate_bisection(points)
-
-    # Разделяем элементы сетки по группам
-    group1 = np.array([cell for cell in cells if labels[cell].mean() < 0.5])
-    group2 = np.array([cell for cell in cells if labels[cell].mean() >= 0.5])
-
-    mesh1 = meshio.Mesh(points=points, cells={"tetra": group1} if "tetra" in mesh.cells_dict else {"triangle": group1})
-    mesh2 = meshio.Mesh(points=points, cells={"tetra": group2} if "tetra" in mesh.cells_dict else {"triangle": group2})
-
-    return mesh1, mesh2
-
-
-def save_vtu(mesh: meshio.Mesh, file_path: str) -> None:
-    """Сохраняет сетку в VTU-файл."""
-    meshio.write(file_path, mesh)
-
-
-def main(input_file: str, output_file1: str, output_file2: str) -> None:
-    """Главная функция: загружает VTU, выполняет разбиение и сохраняет результат."""
-    mesh = load_vtu(input_file)
-    mesh1, mesh2 = split_mesh(mesh)
+    std::string line;
+    bool readingPoints = false;
+    bool readingCells = false;
     
-    save_vtu(mesh1, output_file1)
-    save_vtu(mesh2, output_file2)
+    while (std::getline(file, line)) {
+        if (line.find("<Points>") != std::string::npos) {
+            readingPoints = true;
+        } else if (line.find("</Points>") != std::string::npos) {
+            readingPoints = false;
+        } else if (line.find("<Cells>") != std::string::npos) {
+            readingCells = true;
+        } else if (line.find("</Cells>") != std::string::npos) {
+            readingCells = false;
+        } else if (readingPoints) {
+            std::istringstream iss(line);
+            double x, y, z;
+            if (iss >> x >> y >> z) {
+                points.push_back({x, y, z});
+            }
+        } else if (readingCells) {
+            std::istringstream iss(line);
+            std::vector<int> indices;
+            int index;
+            while (iss >> index) {
+                indices.push_back(index);
+            }
+            if (!indices.empty()) {
+                elements.push_back({indices});
+            }
+        }
+    }
 
+    file.close();
+    return true;
+}
 
-if __name__ == "__main__":
-    input_vtu = "input.vtu"  # Путь к входному файлу
-    output_vtu1 = "output_part1.vtu"  # Первый выходной файл
-    output_vtu2 = "output_part2.vtu"  # Второй выходной файл
+// Функция координатной биссекции
+std::vector<int> CoordinateBisection(const std::vector<Point>& points) {
+    double minX = std::numeric_limits<double>::max(), maxX = std::numeric_limits<double>::lowest();
+    double minY = minX, maxY = maxX, minZ = minX, maxZ = maxX;
 
-    main(input_vtu, output_vtu1, output_vtu2)
+    for (const auto& p : points) {
+        minX = std::min(minX, p.x);
+        maxX = std::max(maxX, p.x);
+        minY = std::min(minY, p.y);
+        maxY = std::max(maxY, p.y);
+        minZ = std::min(minZ, p.z);
+        maxZ = std::max(maxZ, p.z);
+    }
+
+    double rangeX = maxX - minX;
+    double rangeY = maxY - minY;
+    double rangeZ = maxZ - minZ;
+
+    int axis = (rangeX >= rangeY && rangeX >= rangeZ) ? 0 : (rangeY >= rangeX && rangeY >= rangeZ) ? 1 : 2;
+    double median = (axis == 0) ? (minX + maxX) / 2.0 : (axis == 1) ? (minY + maxY) / 2.0 : (minZ + maxZ) / 2.0;
+
+    std::vector<int> labels(points.size(), 0);
+    for (size_t i = 0; i < points.size(); ++i) {
+        double value = (axis == 0) ? points[i].x : (axis == 1) ? points[i].y : points[i].z;
+        labels[i] = (value >= median) ? 1 : 0;
+    }
+
+    return labels;
+}
+
+// Функция сохранения VTU-файла
+void SaveVTU(const std::string& filename, const std::vector<Point>& points, const std::vector<Element>& elements) {
+    std::ofstream file(filename);
+    if (!file.is_open()) {
+        std::cerr << "Ошибка: не удалось создать файл " << filename << std::endl;
+        return;
+    }
+
+    file << "<VTKFile type=\"UnstructuredGrid\">\n";
+    file << "<UnstructuredGrid>\n";
+    file << "<Points>\n";
+    
+    for (const auto& p : points) {
+        file << p.x << " " << p.y << " " << p.z << "\n";
+    }
+    
+    file << "</Points>\n";
+    file << "<Cells>\n";
+    
+    for (const auto& elem : elements) {
+        for (int idx : elem.node_indices) {
+            file << idx << " ";
+        }
+        file << "\n";
+    }
+    
+    file << "</Cells>\n";
+    file << "</UnstructuredGrid>\n";
+    file << "</VTKFile>\n";
+    file.close();
+}
+
+// Главная функция
+int main() {
+    std::string input_file = "input.vtu";
+    std::string output_file1 = "output_part1.vtu";
+    std::string output_file2 = "output_part2.vtu";
+
+    std::vector<Point> points;
+    std::vector<Element> elements;
+
+    if (!LoadVTU(input_file, points, elements)) {
+        return 1;
+    }
+
+    std::vector<int> labels = CoordinateBisection(points);
+
+    std::vector<Point> points1, points2;
+    std::vector<Element> elements1, elements2;
+
+    for (size_t i = 0; i < points.size(); ++i) {
+        if (labels[i] == 0) {
+            points1.push_back(points[i]);
+        } else {
+            points2.push_back(points[i]);
+        }
+    }
+
+    for (const auto& elem : elements) {
+        int sum_labels = 0;
+        for (int idx : elem.node_indices) {
+            sum_labels += labels[idx];
+        }
+
+        if (sum_labels == 0) {
+            elements1.push_back(elem);
+        } else if (sum_labels == elem.node_indices.size()) {
+            elements2.push_back(elem);
+        }
+    }
+
+    SaveVTU(output_file1, points1, elements1);
+    SaveVTU(output_file2, points2, elements2);
+
+    std::cout << "Файлы сохранены: " << output_file1 << " и " << output_file2 << std::endl;
+    return 0;
+}

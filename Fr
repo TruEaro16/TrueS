@@ -78,6 +78,7 @@ void writeVTUFile(const std::string& filename, const std::vector<Point>& points)
     file << "<Points>" << std::endl;
     file << "<DataArray type=\"Float64\" NumberOfComponents=\"3\" format=\"ascii\">" << std::endl;
 
+    // Записываем точки
     for (const auto& point : points) {
         file << point.x << " " << point.y << " " << point.z << std::endl;
     }

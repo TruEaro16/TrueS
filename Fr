@@ -1,67 +1,67 @@
-Привет! В ELMA (Enterprise Lifecycle Management Automation) для написания сценариев используется язык C#. Давайте рассмотрим пример сценария, который рассчитывает сумму платежа и сумму переплаты.
+import numpy as np
+import meshio
 
-Предположим, у нас есть следующие данные:
-- Сумма кредита (`loanAmount`)
-- Процентная ставка (`interestRate`)
-- Срок кредита в месяцах (`loanTermMonths`)
 
-Мы хотим рассчитать:
-- Ежемесячный платеж (`monthlyPayment`)
-- Общую сумму переплаты (`totalOverpayment`)
+def load_vtu(file_path: str) -> meshio.Mesh:
+    """Загружает VTU-файл и возвращает объект сетки."""
+    return meshio.read(file_path)
 
-Пример кода на C# для расчета:
 
-```csharp
-using System;
+def coordinate_bisection(points: np.ndarray) -> np.ndarray:
+    """
+    Выполняет разбиение сетки методом координатной биссекции.
 
-public class LoanCalculator
-{
-    public static void CalculateLoan(double loanAmount, double interestRate, int loanTermMonths)
-    {
-        // Преобразуем годовую процентную ставку в месячную
-        double monthlyInterestRate = interestRate / 100 / 12;
+    - Определяет ось с наибольшим разбросом координат.
+    - Разделяет точки по средней координате вдоль этой оси.
 
-        // Рассчитываем ежемесячный платеж по формуле аннуитетного платежа
-        double monthlyPayment = loanAmount * (monthlyInterestRate * Math.Pow(1 + monthlyInterestRate, loanTermMonths)) 
-                                / (Math.Pow(1 + monthlyInterestRate, loanTermMonths) - 1);
+    Возвращает массив меток разбиения (0 или 1).
+    """
+    min_coords = points.min(axis=0)
+    max_coords = points.max(axis=0)
+    axis = np.argmax(max_coords - min_coords)  # Выбор оси с наибольшим диапазоном
+    median = np.median(points[:, axis])  # Находим среднее значение вдоль этой оси
 
-        // Рассчитываем общую сумму переплаты
-        double totalPayment = monthlyPayment * loanTermMonths;
-        double totalOverpayment = totalPayment - loanAmount;
+    return (points[:, axis] >= median).astype(int)  # 0 - одна часть, 1 - другая
 
-        // Выводим результаты
-        Console.WriteLine($"Ежемесячный платеж: {monthlyPayment:F2}");
-        Console.WriteLine($"Общая сумма переплаты: {totalOverpayment:F2}");
-    }
 
-    public static void Main(string[] args)
-    {
-        // Пример использования
-        double loanAmount = 100000; // Сумма кредита
-        double interestRate = 12; // Годовая процентная ставка
-        int loanTermMonths = 12; // Срок кредита в месяцах
+def split_mesh(mesh: meshio.Mesh) -> tuple[meshio.Mesh, meshio.Mesh]:
+    """
+    Разбивает входную сетку на две части методом координатной биссекции.
 
-        CalculateLoan(loanAmount, interestRate, loanTermMonths);
-    }
-}
-```
+    Возвращает две новые сетки.
+    """
+    points = mesh.points
+    cells = mesh.cells_dict["tetra"] if "tetra" in mesh.cells_dict else mesh.cells_dict["triangle"]
 
-### Объяснение кода:
-1. **Преобразование процентной ставки**: Годовая процентная ставка преобразуется в месячную, делением на 100 (чтобы получить десятичное значение) и на 12 (количество месяцев в году).
+    labels = coordinate_bisection(points)
 
-2. **Расчет ежемесячного платежа**: Используется формула аннуитетного платежа:
-   \[
-   \text{monthlyPayment} = \text{loanAmount} \times \frac{\text{monthlyInterestRate} \times (1 + \text{monthlyInterestRate})^{\text{loanTermMonths}}}{(1 + \text{monthlyInterestRate})^{\text{loanTermMonths}} - 1}
-   \]
+    # Разделяем элементы сетки по группам
+    group1 = np.array([cell for cell in cells if labels[cell].mean() < 0.5])
+    group2 = np.array([cell for cell in cells if labels[cell].mean() >= 0.5])
 
-3. **Расчет общей суммы переплаты**: Общая сумма переплаты рассчитывается как разница между общей суммой всех платежей и суммой кредита.
+    mesh1 = meshio.Mesh(points=points, cells={"tetra": group1} if "tetra" in mesh.cells_dict else {"triangle": group1})
+    mesh2 = meshio.Mesh(points=points, cells={"tetra": group2} if "tetra" in mesh.cells_dict else {"triangle": group2})
 
-4. **Вывод результатов**: Результаты выводятся в консоль.
+    return mesh1, mesh2
 
-### Как использовать в ELMA:
-1. Создайте новый сценарий в ELMA.
-2. Вставьте код в соответствующий блок сценария.
-3. Убедитесь, что входные параметры (сумма кредита, процентная ставка, срок кредита) передаются в сценарий.
-4. Запустите сценарий и проверьте результаты.
 
-Этот код можно адаптировать под конкретные требования вашего проекта в ELMA. Если у вас есть дополнительные условия или требования, дайте знать, и я помогу доработать код!
+def save_vtu(mesh: meshio.Mesh, file_path: str) -> None:
+    """Сохраняет сетку в VTU-файл."""
+    meshio.write(file_path, mesh)
+
+
+def main(input_file: str, output_file1: str, output_file2: str) -> None:
+    """Главная функция: загружает VTU, выполняет разбиение и сохраняет результат."""
+    mesh = load_vtu(input_file)
+    mesh1, mesh2 = split_mesh(mesh)
+    
+    save_vtu(mesh1, output_file1)
+    save_vtu(mesh2, output_file2)
+
+
+if __name__ == "__main__":
+    input_vtu = "input.vtu"  # Путь к входному файлу
+    output_vtu1 = "output_part1.vtu"  # Первый выходной файл
+    output_vtu2 = "output_part2.vtu"  # Второй выходной файл
+
+    main(input_vtu, output_vtu1, output_vtu2)

@@ -21,6 +21,7 @@ bool readVTUFile(const std::string& filename, std::vector<Point>& points) {
     std::string line;
     bool readingPoints = false;
 
+    // Прочитаем файл строка за строкой
     while (std::getline(file, line)) {
         if (line.find("<Points>") != std::string::npos) {
             readingPoints = true;
@@ -28,13 +29,19 @@ bool readVTUFile(const std::string& filename, std::vector<Point>& points) {
             readingPoints = false;
         }
 
+        // Если мы находимся в разделе с точками, то извлекаем их
         if (readingPoints) {
             if (line.find("<DataArray") != std::string::npos) {
                 std::string coordinates;
                 while (std::getline(file, line) && line.find("</DataArray>") == std::string::npos) {
-                    coordinates += line;
+                    coordinates += line; // Собираем все данные
                 }
 
+                // Выводим собранные данные для отладки
+                std::cout << "Считанные данные о точках: " << std::endl;
+                std::cout << coordinates << std::endl;
+
+                // Парсим данные о точках
                 std::stringstream ss(coordinates);
                 double x, y, z;
                 while (ss >> x >> y >> z) {
@@ -102,6 +109,8 @@ int main() {
         std::cerr << "Ошибка при чтении VTU файла!" << std::endl;
         return 1;
     }
+
+    std::cout << "Количество точек после чтения: " << points.size() << std::endl;
 
     // Шаг 2: Разбиение точек по координате X (например, значение X = 0.5)
     double bisectCoordinate = 0.5;  // Граница разбиения
